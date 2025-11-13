@@ -3,16 +3,15 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Chart Dashboard</title>
+<title>Chart + Watchlist (Compact Dashboard)</title>
 
-<!-- Lightweight Charts CDN -->
-<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<!-- ✅ Correct Lightweight Charts version -->
+<script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
 
 <style>
 :root{
   --bg:#071122; --panel:#0b2230; --muted:#94a3b8; --accent:#38bdf8;
   --up:#22c55e; --down:#ef4444; --surface:#0f1724;
-  --card:#0f2a37;
 }
 *{box-sizing:border-box;font-family:Inter, Arial, sans-serif}
 html,body{height:100%;margin:0;background:var(--bg);color:#e6eef8}
@@ -22,90 +21,74 @@ html,body{height:100%;margin:0;background:var(--bg);color:#e6eef8}
 .side{
   width:300px;
   background:#071a27;
-  padding:18px;
+  padding:16px;
   border-right:1px solid rgba(255,255,255,0.05);
   overflow:auto;
 }
-.side h2{margin:0 0 12px;color:var(--accent);font-size:28px}
-.search{width:100%;background:#071826;color:#cfe6ff;padding:10px;margin-bottom:12px;border-radius:8px;border:none}
-.watchlist{list-style:none;padding:0;margin:0}
+.side h2{margin:0 0 12px;color:var(--accent);font-size:26px}
+.search{width:100%;padding:10px;border-radius:8px;border:none;background:#0b2230;color:#dce7ff;margin-bottom:12px}
+
+.watchlist{list-style:none;margin:0;padding:0}
 .watchlist li{
   background:#122b36;margin:8px 0;padding:12px;border-radius:8px;cursor:pointer;
-  text-transform:uppercase;letter-spacing:0.6px;color:#e6eef8;font-weight:600
+  color:white;font-weight:600;text-transform:uppercase
 }
 .watchlist li.active{background:#244f63}
-.add-row{display:flex;gap:8px;margin-top:12px}
-.add-row input{flex:1;background:#071026;padding:10px;color:#cfe6ff;border-radius:8px;border:none}
-.add-row button{background:var(--accent);color:#042330;padding:10px 14px;border-radius:8px;border:none;cursor:pointer}
 
-/* Ribbon indicator bar */
-.ribbon{
-  width:100%;
-  padding:10px 16px;
-  background:#0d2030;
-  display:flex;
-  gap:16px;
-  border-bottom:1px solid rgba(255,255,255,0.05);
-}
-.ribbon-item{
-  color:var(--muted);
-  font-size:13px;
-  display:flex;
-  flex-direction:column;
-}
-.ribbon-item label{font-size:12px;margin-bottom:2px;color:#7ea0c4}
-.ribbon-item input,.ribbon-item select{
-  background:#071827;
-  border:none;
-  padding:6px;
-  color:#cfe6ff;
-  border-radius:6px;
-}
+.add-row{display:flex;gap:8px;margin-top:10px}
+.add-row input{flex:1;background:#071026;padding:10px;border-radius:8px;border:none;color:#cfe6ff}
+.add-row button{padding:10px 14px;background:var(--accent);border:none;border-radius:8px;color:#01222b;cursor:pointer}
+
+/* Presets */
+.panel{margin-top:20px;padding:12px;background:#0b2230;border-radius:8px}
+.panel h3{margin:0 0 8px}
+.preset-row{display:flex;gap:8px}
+.preset-list{font-size:14px;color:#cfe6ff;margin-top:10px}
+
 /* Main chart area */
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
 .toolbar{
-  height:60px;
-  background:#0c1824;
-  display:flex;
-  align-items:center;
-  padding:0 18px;
+  background:#061821;
   border-bottom:1px solid rgba(255,255,255,0.05);
-  gap:16px;
+  height:56px;
+  display:flex;align-items:center;
+  padding:0 18px;gap:16px
 }
-.title{font-weight:700;font-size:20px}
-
-.tf-group{display:flex;gap:6px;margin-left:10px}
+.title{font-size:20px;font-weight:700}
+.tf-group{display:flex;gap:6px}
 .tf-btn{
-  background:#071826;
-  border-radius:6px;
-  padding:6px 10px;
-  border:none;
-  color:#cfe6ff;
-  cursor:pointer;
-  font-size:13px
+  padding:6px 10px;border-radius:6px;border:none;
+  background:#0a2738;color:#cfe6ff;cursor:pointer
 }
 .tf-btn.active{background:var(--accent);color:#01222b}
 
-.toggles{margin-left:auto;display:flex;gap:14px;align-items:center}
-.toggle{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)}
+/* top-right toggles */
+.toggles{margin-left:auto;display:flex;gap:12px}
+.toggle{display:flex;align-items:center;gap:6px;font-size:14px;color:#cfe6ff}
 
-.chart-wrap{flex:1;display:flex;position:relative}
-.chart-box{flex:1;background:var(--surface);padding:0;display:flex;flex-direction:column}
-#chart{flex:1;min-height:0;border-radius:0}
+/* chart container */
+.chart-wrap{flex:1;display:flex;min-height:0;position:relative}
+.chart-box{flex:1;background:#0f1724;padding:10px;display:flex;flex-direction:column}
+#chart{flex:1}
 
-.spinner,.error{
-  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  padding:12px 18px;border-radius:10px;font-weight:700
+/* Right indicator panel → converted into top ribbon */
+.right{
+  position:absolute;
+  top:0;left:50%;transform:translateX(-50%);
+  display:flex;gap:16px;
+  background:#061821c5;
+  padding:8px 12px;border-radius:8px;
+  z-index:10;
 }
-.spinner{background:rgba(0,0,0,0.6)}
+.right label{font-size:13px;color:#cfe6ff}
+
+.spinner, .error{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  padding:10px 14px;border-radius:8px;font-weight:700
+}
+.spinner{background:#0008;color:white}
 .error{background:#2b0f0f;color:#ffd2d2;display:none}
 .hidden{display:none}
-
-/* responsive */
-@media(max-width:900px){
-  .side{display:none}
-  .ribbon{display:none}
-}
 </style>
 </head>
 
@@ -115,22 +98,31 @@ html,body{height:100%;margin:0;background:var(--bg);color:#e6eef8}
   <!-- LEFT WATCHLIST -->
   <aside class="side">
     <h2>Watchlist</h2>
-    <input id="searchInput" class="search" placeholder="Search symbol..." />
+    <input id="searchInput" class="search" placeholder="Search symbol..."/>
 
     <ul id="watchlist" class="watchlist"></ul>
 
     <div class="add-row">
-      <input id="addSymbol" placeholder="Add symbol, e.g. RELIANCE.NS" />
+      <input id="addSymbol" placeholder="Add symbol, e.g. RELIANCE.NS"/>
       <button id="addBtn">Add</button>
+    </div>
+
+    <div class="panel">
+      <h3>Presets</h3>
+      <div class="preset-row">
+        <input id="presetName" placeholder="Preset name"/>
+        <button id="savePreset" style="background:var(--accent);color:#01222b;border-radius:6px;padding:8px 12px">Save</button>
+      </div>
+      <button id="exportPresets" style="margin-top:10px;background:none;border:1px solid #334;color:#88a;padding:6px 10px;border-radius:6px">Export</button>
+
+      <div id="presetList" class="preset-list">Saved presets:</div>
     </div>
   </aside>
 
   <!-- MAIN -->
   <main class="main">
-
-    <!-- TIMEFRAMES + TOGGLES -->
     <div class="toolbar">
-      <div class="title" id="symbolTitle">Loading...</div>
+      <div id="symbolTitle" class="title">Loading...</div>
 
       <div class="tf-group" id="timeframes">
         <button class="tf-btn" data-tf="1m">1m</button>
@@ -144,313 +136,532 @@ html,body{height:100%;margin:0;background:var(--bg);color:#e6eef8}
       </div>
 
       <div class="toggles">
-        <div class="toggle"><input type="checkbox" id="toggleReliable" checked /> Reliable</div>
-        <div class="toggle"><input type="checkbox" id="toggleLux" checked /> Lux</div>
-        <div class="toggle"><input type="checkbox" id="toggleIsland" checked /> Island</div>
+        <div class="toggle"><input type="checkbox" id="toggleReliable" checked> Reliable</div>
+        <div class="toggle"><input type="checkbox" id="toggleLux" checked> Lux</div>
+        <div class="toggle"><input type="checkbox" id="toggleIsland" checked> Island</div>
       </div>
     </div>
-
-    <!-- RIBBON (Indicators moved here) -->
-    <div class="ribbon">
-      <div class="ribbon-item">
-        <label>Pivot L</label>
-        <input id="pivotLeft" type="number" value="15" />
-      </div>
-      <div class="ribbon-item">
-        <label>Pivot R</label>
-        <input id="pivotRight" type="number" value="15" />
-      </div>
-
-      <div class="ribbon-item">
-        <label>Lux Len</label>
-        <input id="luxLen1" type="number" value="50" />
-      </div>
-      <div class="ribbon-item">
-        <label>Lux Mult</label>
-        <input id="luxMlt1" type="number" step="0.1" value="2" />
-      </div>
-
-      <div class="ribbon-item">
-        <label>Island Trend</label>
-        <input id="islandTrend" type="number" value="10" />
-      </div>
-      <div class="ribbon-item">
-        <label>Island Vol</label>
-        <select id="islandVolFilter">
-          <option value="true" selected>On</option>
-          <option value="false">Off</option>
-        </select>
-      </div>
-
-      <div class="ribbon-item">
-        <label>Volume</label>
-        <select id="showVolume">
-          <option value="true" selected>Show</option>
-          <option value="false">Hide</option>
-        </select>
-      </div>
-
-      <div class="ribbon-item">
-        <label>Poll (sec)</label>
-        <input id="pollInterval" type="number" value="5" />
-      </div>
-
-      <button id="applyIndicators" style="margin-left:auto;background:var(--accent);color:#01222b;border:none;border-radius:6px;padding:8px 14px;cursor:pointer">Apply</button>
-    </div>
-
     <div class="chart-wrap">
       <div class="chart-box">
+
+        <!-- Top ribbon indicator controls -->
+        <div class="right" id="indicatorRibbon">
+          <!-- Reliable -->
+          <label>
+            <input type="number" id="pivotLeft" value="15" min="1" style="width:55px;border-radius:4px;background:#0b2230;border:none;color:#dce7ff;padding:4px 6px">
+            L
+          </label>
+          <label>
+            <input type="number" id="pivotRight" value="15" min="1" style="width:55px;border-radius:4px;background:#0b2230;border:none;color:#dce7ff;padding:4px 6px">
+            R
+          </label>
+
+          <!-- LuxAlgo -->
+          <label>
+            <input type="number" id="luxLen1" value="50" min="2" style="width:55px;border-radius:4px;background:#0b2230;border:none;color:#dce7ff;padding:4px 6px">
+            len
+          </label>
+          <label>
+            <input type="number" id="luxMlt1" value="2" step="0.1" min="0.1" style="width:55px;border-radius:4px;background:#0b2230;border:none;color:#dce7ff;padding:4px 6px">
+            mlt
+          </label>
+
+          <!-- Island -->
+          <label>
+            <input type="number" id="islandTrend" value="10" min="2" style="width:55px;border-radius:4px;background:#0b2230;border:none;color:#dce7ff;padding:4px 6px">
+            Trend
+          </label>
+          <label>
+            <input type="checkbox" id="islandVolFilter" checked> Vol
+          </label>
+
+          <!-- Volume -->
+          <label>
+            <input type="checkbox" id="showVolume" checked> VolBars
+          </label>
+
+          <button id="applyIndicators" style="padding:6px 12px;border:none;border-radius:6px;background:var(--accent);color:#01222b;font-weight:600">
+            Apply
+          </button>
+        </div>
+
         <div id="chart"></div>
         <div id="spinner" class="spinner hidden">Loading...</div>
         <div id="error" class="error"></div>
       </div>
     </div>
-
   </main>
+</div>
 <script>
 
-/* ---------------- CONFIG ---------------- */
+/* ----------------------------------------------------
+   CONFIG
+---------------------------------------------------- */
 const WORKER_URL = "https://black-tree-2e32.sriviadithi.workers.dev/?symbol=";
-const DEFAULT_SYMBOLS = ["RELIANCE.NS","TCS.NS","INFY.NS","HDFCBANK.NS"];
+const DEFAULT_SYMBOLS = ["RELIANCE.NS","TCS.NS","INFY.NS","HDFCBANK.NS","ICICIBANK.NS"];
 
 /* DOM */
-const watchlistEl = document.getElementById('watchlist');
-const symbolTitle = document.getElementById('symbolTitle');
-const chartDiv = document.getElementById('chart');
-const spinner = document.getElementById('spinner');
-const errorBox = document.getElementById('error');
+const watchlistEl = document.getElementById("watchlist");
+const symbolTitle = document.getElementById("symbolTitle");
+const chartDiv = document.getElementById("chart");
+const spinner = document.getElementById("spinner");
+const errorBox = document.getElementById("error");
 
-const addSymbolInput = document.getElementById('addSymbol');
-const addBtn = document.getElementById('addBtn');
-const searchInput = document.getElementById('searchInput');
+const addSymbolInput = document.getElementById("addSymbol");
+const addBtn = document.getElementById("addBtn");
+const searchInput = document.getElementById("searchInput");
 
-const tfButtons = [...document.querySelectorAll('.tf-btn')];
-const showVolume = document.getElementById('showVolume');
+const showVolume = document.getElementById("showVolume");
+const toggleReliable = document.getElementById("toggleReliable");
+const toggleLux = document.getElementById("toggleLux");
+const toggleIsland = document.getElementById("toggleIsland");
 
-const toggleReliable = document.getElementById('toggleReliable');
-const toggleLux = document.getElementById('toggleLux');
-const toggleIsland = document.getElementById('toggleIsland');
+const pivotLeft = document.getElementById("pivotLeft");
+const pivotRight = document.getElementById("pivotRight");
 
-const pivotLeft = document.getElementById('pivotLeft');
-const pivotRight = document.getElementById('pivotRight');
+const luxLen1 = document.getElementById("luxLen1");
+const luxMlt1 = document.getElementById("luxMlt1");
 
-const luxLen1 = document.getElementById('luxLen1');
-const luxMlt1 = document.getElementById('luxMlt1');
+const islandTrend = document.getElementById("islandTrend");
+const islandVolFilter = document.getElementById("islandVolFilter");
 
-const islandTrend = document.getElementById('islandTrend');
-const islandVolFilter = document.getElementById('islandVolFilter');
+const applyIndicatorsBtn = document.getElementById("applyIndicators");
+const pollIntervalInput = document.getElementById("pollInterval");
 
-const applyIndicatorsBtn = document.getElementById('applyIndicators');
-const pollIntervalInput = document.getElementById('pollInterval');
+const presetName = document.getElementById("presetName");
+const savePresetBtn = document.getElementById("savePreset");
+const presetList = document.getElementById("presetList");
+const exportPresetsBtn = document.getElementById("exportPresets");
 
-let watchSymbols = JSON.parse(localStorage.getItem('watchSymbols')) || DEFAULT_SYMBOLS.slice();
-
+/* STATE */
+let watchSymbols = JSON.parse(localStorage.getItem("watchSymbols")) || DEFAULT_SYMBOLS.slice();
+let presets = JSON.parse(localStorage.getItem("chartPresets")) || {};
 let chart = null;
 let candleSeries = null;
 let volumeSeries = null;
 let srLines = [];
-let lastSymbol = null;
 let activeTF = "1D";
+let lastSymbol = null;
 let pollTimer = null;
 
-
-/* ---------------- CHART CREATION ---------------- */
-function createChart(){
-  if(chart) return;
+/* ----------------------------------------------------
+   CREATE CHART
+---------------------------------------------------- */
+function createChart() {
+  if (chart) return;
 
   chart = LightweightCharts.createChart(chartDiv, {
-    layout:{ backgroundColor:"#0f1724", textColor:"#d1d4dc" },
-    rightPriceScale:{ borderColor:"#485c7b" },
-    timeScale:{ borderColor:"#485c7b", timeVisible:true },
-    grid:{ vertLines:{color:"#253248"}, horzLines:{color:"#253248"} }
+    layout: {
+      backgroundColor: "#0f1724",
+      textColor: "#d1d4dc"
+    },
+    grid: {
+      vertLines: { color: "#253248" },
+      horzLines: { color: "#253248" }
+    },
+    rightPriceScale: { borderColor: "#485c7b" },
+    timeScale: {
+      borderColor: "#485c7b",
+      timeVisible: true,
+      secondsVisible: false
+    }
   });
 
   candleSeries = chart.addCandlestickSeries({
-    upColor:"#22c55e", downColor:"#ef4444",
-    wickVisible:true, borderVisible:true
+    upColor: "#22c55e",
+    downColor: "#ef4444",
+    wickVisible: true,
+    borderVisible: true
   });
 
   volumeSeries = chart.addHistogramSeries({
-    priceScaleId:'',
-    scaleMargins:{ top:0.8, bottom:0 },
-    priceFormat:{ type:"volume" }
+    priceFormat: { type: "volume" },
+    priceScaleId: "",
+    scaleMargins: { top: 0.8, bottom: 0 }
   });
 }
 
-/* UI helpers */
-function showSpinner(){ spinner.classList.remove('hidden'); }
-function hideSpinner(){ spinner.classList.add('hidden'); }
-function showError(msg){ errorBox.textContent=msg; errorBox.style.display='block'; }
-function hideError(){ errorBox.style.display='none'; }
+/* ------------------- UI HELPERS ------------------- */
+function showSpinner() { spinner.classList.remove("hidden"); }
+function hideSpinner() { spinner.classList.add("hidden"); }
+function showError(msg) { errorBox.textContent = msg; errorBox.style.display = "block"; }
+function hideError() { errorBox.style.display = "none"; }
 
-/* Render watchlist */
-function renderWatchlist(){
-  watchlistEl.innerHTML = '';
-  watchSymbols.forEach(sym=>{
-    const li=document.createElement('li');
-    li.textContent=sym;
-    li.dataset.symbol=sym;
-    li.onclick=()=>loadChart(sym);
+/* ------------------- WATCHLIST -------------------- */
+function renderWatchlist() {
+  watchlistEl.innerHTML = "";
+  watchSymbols.forEach(sym => {
+    const li = document.createElement("li");
+    li.textContent = sym;
+    li.dataset.symbol = sym;
+    li.onclick = () => loadChart(sym);
     watchlistEl.appendChild(li);
   });
 }
 renderWatchlist();
 
-addBtn.onclick = ()=>{
+addBtn.onclick = () => {
   const v = addSymbolInput.value.trim().toUpperCase();
-  if(v && !watchSymbols.includes(v)){
+  if (!v) return;
+  if (!watchSymbols.includes(v)) {
     watchSymbols.unshift(v);
-    localStorage.setItem('watchSymbols',JSON.stringify(watchSymbols));
+    localStorage.setItem("watchSymbols", JSON.stringify(watchSymbols));
     renderWatchlist();
-    loadChart(v);
   }
-  addSymbolInput.value='';
+  addSymbolInput.value = "";
+  loadChart(v);
 };
 
-searchInput.oninput = e=>{
-  const q = e.target.value.trim().toLowerCase();
-  [...watchlistEl.children].forEach(li=>{
+searchInput.oninput = e => {
+  const q = e.target.value.toLowerCase();
+  Array.from(watchlistEl.children).forEach(li => {
     li.style.display = li.textContent.toLowerCase().includes(q) ? "" : "none";
   });
 };
 
-/* Timeframe buttons */
-tfButtons.forEach(btn=>{
-  btn.onclick = ()=>{
-    tfButtons.forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    activeTF = btn.dataset.tf;
-    if(lastSymbol) loadChart(lastSymbol);
-  };
-});
-/* Fetch OHLC */
-async function fetchOHLC(symbol){
-  const url = WORKER_URL + symbol;
-  try{
-    const res = await fetch(url,{cache:"no-store"});
-    const json = await res.json();
+/* ------------------- FETCH OHLC ------------------- */
+async function fetchOHLC(symbol, range = "1y", gran = "1d") {
+  const url = WORKER_URL + encodeURIComponent(symbol) +
+              `&range=${range}&granularity=${gran}`;
 
-    if(Array.isArray(json)) return json;
+  try {
+    const r = await fetch(url);
+    const json = await r.json();
 
-    if(json?.chart?.result?.[0]){
+    // If AWS worker returns array directly
+    if (Array.isArray(json)) return json.map(normalizeBar);
+
+    // If wrapped {data:[...]}
+    if (json.data && Array.isArray(json.data))
+      return json.data.map(normalizeBar);
+
+    // Yahoo-like parsing
+    if (json.chart?.result?.[0]) {
       const r = json.chart.result[0];
-      const ts = r.timestamp;
+      const t = r.timestamp;
       const q = r.indicators.quote[0];
-      const out=[];
-      for(let i=0;i<ts.length;i++){
-        if(q.open[i]==null) continue;
+      const out = [];
+
+      for (let i = 0; i < t.length; i++) {
+        if (q.open[i] == null) continue;
         out.push({
-          time:ts[i],
-          open:q.open[i],
-          high:q.high[i],
-          low:q.low[i],
-          close:q.close[i],
-          volume:q.volume[i]||0
+          time: t[i],
+          open: q.open[i],
+          high: q.high[i],
+          low: q.low[i],
+          close: q.close[i],
+          volume: q.volume[i]
         });
       }
-      return out;
+      return out.map(normalizeBar);
     }
 
     return [];
-  }catch(e){
+  } catch (e) {
+    console.error("Fetch error", e);
     return [];
   }
 }
 
-/* Convert TF (simplified) */
-function convertTF(bars, tf){
-  return bars; // keep simple for now
+function normalizeBar(b) {
+  let t = b.time || b.timestamp || b[0];
+  if (!t) return null;
+  if (t > 1e12) t = Math.floor(t / 1000);
+  return {
+    time: t,
+    open: +b.open,
+    high: +b.high,
+    low: +b.low,
+    close: +b.close,
+    volume: +b.volume || 0
+  };
 }
+/* -------------------------------------------------------
+   TIMEFRAME CONVERSION
+------------------------------------------------------- */
+const TF_SEC = {
+  "1m": 60, "5m": 300, "15m": 900, "30m": 1800,
+  "60m": 3600, "1D": 86400, "1W": 604800, "1M": 2592000
+};
 
-/* Indicators */
-function clearIndicators(){
-  for(const l of srLines){
-    try{ chart.removePriceLine(l); }catch(_){}
-  }
-  srLines=[];
-}
+function convertToTF(bars, sourceSec, targetTF) {
+  const targetSec = TF_SEC[targetTF] || 86400;
 
-function drawLevels(levels){
-  for(const L of levels){
-    const line = candleSeries.createPriceLine({
-      price:L.price,
-      color:L.color,
-      title:L.label,
-      lineWidth:2
+  // If equal TF → return same
+  if (sourceSec === targetSec) return bars.slice();
+
+  // If target is larger → aggregate
+  if (targetSec > sourceSec) {
+    const groups = {};
+    bars.forEach(b => {
+      const key = Math.floor(b.time / targetSec);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(b);
     });
-    srLines.push(line);
+
+    return Object.values(groups).map(grp => {
+      return {
+        time: grp[0].time,
+        open: grp[0].open,
+        high: Math.max(...grp.map(x => x.high)),
+        low: Math.min(...grp.map(x => x.low)),
+        close: grp[grp.length - 1].close,
+        volume: grp.reduce((s, x) => s + x.volume, 0)
+      };
+    });
   }
+
+  // If target is smaller → synthetic intraday (approx)
+  const out = [];
+  for (let d of bars) {
+    const parts = Math.floor(86400 / targetSec);
+    for (let i = 0; i < parts; i++) {
+      const t = d.time + i * targetSec;
+      const o = d.open + (d.close - d.open) * (i / parts);
+      const c = d.open + (d.close - d.open) * ((i + 1) / parts);
+      out.push({
+        time: t,
+        open: o,
+        high: Math.max(o, c, d.high),
+        low: Math.min(o, c, d.low),
+        close: c,
+        volume: Math.round(d.volume / parts)
+      });
+    }
+  }
+  return out;
 }
 
-function computeReliable(bars){
-  const lev=[];
-  for(let i=2;i<bars.length-2;i++){
-    if(bars[i].high>bars[i-1].high && bars[i].high>bars[i+1].high){
-      lev.push({price:bars[i].high,label:'PH',color:'#ef4444'});
-    }
-    if(bars[i].low<bars[i-1].low && bars[i].low<bars[i+1].low){
-      lev.push({price:bars[i].low,label:'PL',color:'#22c55e'});
-    }
+/* -------------------------------------------------------
+   INDICATORS
+------------------------------------------------------- */
+function computeReliableSR(bars, L = 15, R = 15) {
+  const levels = [];
+
+  for (let i = L; i < bars.length - R; i++) {
+    const b = bars[i];
+
+    const leftSlice = bars.slice(i - L, i);
+    const rightSlice = bars.slice(i + 1, i + 1 + R);
+
+    const isPH = leftSlice.every(x => b.high > x.high)
+              && rightSlice.every(x => b.high > x.high);
+
+    const isPL = leftSlice.every(x => b.low < x.low)
+              && rightSlice.every(x => b.low < x.low);
+
+    if (isPH) levels.push({ price: b.high, label: "PH", color: "#ef4444", width: 2 });
+    if (isPL) levels.push({ price: b.low, label: "PL", color: "#22c55e", width: 2 });
   }
-  return lev;
+
+  // merge nearby levels
+  const merged = [];
+  for (let lv of levels) {
+    const found = merged.find(m => Math.abs(m.price - lv.price) < lv.price * 0.002);
+    if (found) {
+      found.price = (found.price + lv.price) / 2;
+      found.count = (found.count || 1) + 1;
+    } else merged.push({ ...lv, count: 1 });
+  }
+
+  merged.sort((a, b) => b.count - a.count);
+  return merged.slice(0, 30);
 }
 
-function computeLux(bars){
-  if(bars.length<50) return [];
-  const last = bars[bars.length-1];
+function computeLuxSR(bars, len = 50, mlt = 2) {
+  if (bars.length < len) return [];
+
+  const closes = bars.map(b => b.close);
+  const sma = [];
+  let sum = 0;
+
+  for (let i = 0; i < closes.length; i++) {
+    sum += closes[i];
+    if (i >= len) sum -= closes[i - len];
+    sma[i] = i >= len - 1 ? sum / len : null;
+  }
+
+  const last = bars.length - 1;
+  if (!sma[last]) return [];
+
+  // compute std dev
+  const slice = closes.slice(last - len + 1, last + 1);
+  const avg = sma[last];
+
+  const variance = slice.reduce((s, x) => s + (x - avg) ** 2, 0) / len;
+  const std = Math.sqrt(variance);
+
   return [
-    {price:last.high,label:"Lux High",color:"#60a5fa"},
-    {price:last.low,label:"Lux Low",color:"#7c3aed"}
+    { price: avg + mlt * std, label: "Lux Upper", color: "#ffd166", width: 1 },
+    { price: avg, label: "Lux SMA", color: "#60a5fa", width: 2 },
+    { price: avg - mlt * std, label: "Lux Lower", color: "#7c3aed", width: 1 }
   ];
 }
 
-function computeIsland(){ return []; }
+function computeIsland(bars, len = 10, volFilter = true) {
+  const out = [];
+  for (let i = 2; i < bars.length - 2; i++) {
+    const p = bars[i - 1];
+    const c = bars[i];
+    const n = bars[i + 1];
 
-/* Load chart */
-async function loadChart(symbol){
+    // bullish
+    if (c.low > p.high && n.high < c.low) {
+      out.push({ top: c.high, bottom: c.low, bullish: true });
+    }
+
+    // bearish
+    if (c.high < p.low && n.low > c.high) {
+      out.push({ top: c.high, bottom: c.low, bullish: false });
+    }
+  }
+  return out;
+}
+
+/* -------------------------------------------------------
+   DRAW INDICATORS
+------------------------------------------------------- */
+function clearIndicators() {
+  srLines.forEach(pl => { try { candleSeries.removePriceLine(pl); } catch (e) {} });
+  srLines = [];
+}
+
+function drawLines(levels) {
+  levels.forEach(L => {
+    const pl = candleSeries.createPriceLine({
+      price: L.price,
+      color: L.color,
+      title: L.label,
+      lineWidth: L.width
+    });
+    srLines.push(pl);
+  });
+}
+
+function drawIslands(list) {
+  list.forEach(i => {
+    const color = i.bullish ? "#0f8" : "#f44";
+
+    const top = candleSeries.createPriceLine({
+      price: i.top,
+      color,
+      lineWidth: 2,
+      title: "Island"
+    });
+    const bottom = candleSeries.createPriceLine({
+      price: i.bottom,
+      color,
+      lineWidth: 2,
+      title: ""
+    });
+    srLines.push(top, bottom);
+  });
+}
+
+/* -------------------------------------------------------
+   LOAD CHART
+------------------------------------------------------- */
+async function loadChart(symbol) {
   lastSymbol = symbol;
   createChart();
   showSpinner();
   hideError();
+
   symbolTitle.textContent = symbol;
 
-  let bars = await fetchOHLC(symbol);
+  // FETCH DAILY SOURCE
+  let src = await fetchOHLC(symbol, "1y", "1d");
   hideSpinner();
 
-  if(!bars.length){
-    showError("No data");
+  if (!src.length) {
+    showError("No data received");
     return;
   }
 
-  bars.sort((a,b)=>a.time-b.time);
-  bars = convertTF(bars,activeTF);
+  src.sort((a, b) => a.time - b.time);
 
-  candleSeries.setData(bars);
-  chart.timeScale().fitContent();
+  // SOURCE interval guess
+  let srcSec = 86400;
+  if (src.length > 1) srcSec = src[1].time - src[0].time;
 
-  if(showVolume.value==="true"){
-    volumeSeries.setData(bars.map(b=>({
-      time:b.time, value:b.volume, color:b.close>=b.open?'#22c55e':'#ef4444'
-    })));
-  }else{
+  const bars = convertToTF(src, srcSec, activeTF);
+
+  const cData = bars.map(b => ({
+    time: b.time,
+    open: b.open,
+    high: b.high,
+    low: b.low,
+    close: b.close
+  }));
+
+  candleSeries.setData(cData);
+
+  if (showVolume.checked) {
+    volumeSeries.setData(
+      bars.map(b => ({
+        time: b.time,
+        value: b.volume,
+        color: b.close >= b.open ? "#22c55e" : "#ef4444"
+      }))
+    );
+  } else {
     volumeSeries.setData([]);
   }
 
   clearIndicators();
+  if (toggleReliable.checked) drawLines(computeReliableSR(bars, pivotLeft.valueAsNumber, pivotRight.valueAsNumber));
+  if (toggleLux.checked) drawLines(computeLuxSR(bars, luxLen1.valueAsNumber, luxMlt1.valueAsNumber));
+  if (toggleIsland.checked) drawIslands(computeIsland(bars, islandTrend.valueAsNumber, islandVolFilter.checked));
 
-  let levels=[];
-  if(toggleReliable.checked) levels.push(...computeReliable(bars));
-  if(toggleLux.checked)      levels.push(...computeLux(bars));
-
-  drawLevels(levels);
+  setupPolling(symbol);
 }
 
-applyIndicatorsBtn.onclick = ()=> lastSymbol && loadChart(lastSymbol);
+/* -------------------------------------------------------
+   LIVE POLLING (SAFE & SIMPLE)
+------------------------------------------------------- */
+function isMarketOpen() {
+  const d = new Date();
+  const h = d.getHours();
+  const m = d.getMinutes();
+  return (h > 9 && h < 16) || (h === 9 && m >= 0) || (h === 15 && m <= 30);
+}
 
-/* default load */
-loadChart(watchSymbols[0]);
+function setupPolling(symbol) {
+  if (pollTimer) clearInterval(pollTimer);
+
+  const sec = Math.max(2, pollIntervalInput.valueAsNumber || 5);
+
+  pollTimer = setInterval(async () => {
+    if (!isMarketOpen()) return;
+
+    const recent = await fetchOHLC(symbol, "5d", "1d");
+    if (!recent.length) return;
+
+    loadChart(symbol); // safe + stable
+  }, sec * 1000);
+}
+
+/* -------------------------------------------------------
+   EVENT HANDLERS
+------------------------------------------------------- */
+document.querySelectorAll(".tf-btn").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".tf-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeTF = btn.dataset.tf;
+    if (lastSymbol) loadChart(lastSymbol);
+  };
+});
+
+applyIndicatorsBtn.onclick = () => {
+  if (lastSymbol) loadChart(lastSymbol);
+};
+
+/* -------------------------------------------------------
+   INITIAL LOAD
+------------------------------------------------------- */
+loadChart(watchSymbols[0] || "RELIANCE.NS");
 
 </script>
-
 </body>
 </html>
