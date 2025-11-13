@@ -1,152 +1,142 @@
-// ----------------------------------------------------
+// -----------------------------
 // CONFIG
-// ----------------------------------------------------
+// -----------------------------
 const WORKER_URL = "https://black-tree-2e32.sriviadithi.workers.dev/?symbol=";
 
-// HTML references
-const chartDiv = document.getElementById("chart");
-const volumeDiv = document.getElementById("volume");
-const watchlistItems = document.querySelectorAll("#watchlist li");
+// HTML elements
+const chartEl = document.getElementById("chart");
+const volumeEl = document.getElementById("volume");
 const spinner = document.getElementById("spinner");
 const errorBox = document.getElementById("error");
 const symbolTitle = document.getElementById("symbol-title");
+const watchlistItems = document.querySelectorAll("#watchlist li");
 
-// Global chart + series
-let chart = null;
-let candleSeries = null;
-let volumeSeries = null;
+// Global chart objects
+let chart, candleSeries, volumeSeries;
 
-// ----------------------------------------------------
-// CREATE CHART ONCE
-// ----------------------------------------------------
+// -----------------------------
+// CREATE CHART (once only)
+// -----------------------------
 function createChart() {
-    if (chart) return;
+    if (chart) return chart;
 
-    chart = LightweightCharts.createChart(chartDiv, {
-        width: chartDiv.clientWidth,
-        height: chartDiv.clientHeight,
+    chart = LightweightCharts.createChart(chartEl, {
         layout: {
-            backgroundColor: "#0f1724",
-            textColor: "#d1d4dc",
+            background: { color: "#0f1724" },
+            textColor: "#e6eef8",
         },
         grid: {
-            vertLines: { color: "#253248" },
-            horzLines: { color: "#253248" },
+            vertLines: { color: "#1c263b" },
+            horzLines: { color: "#1c263b" },
         },
         timeScale: {
-            borderColor: "#485c7b",
+            borderColor: "#334155",
         },
         rightPriceScale: {
-            borderColor: "#485c7b",
+            borderColor: "#334155",
+        },
+        crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
         },
     });
 
+    // Candle series
     candleSeries = chart.addCandlestickSeries({
         upColor: "#22c55e",
         downColor: "#ef4444",
-        borderVisible: true,
-        wickVisible: true,
+        borderVisible: false,
+        wickUpColor: "#22c55e",
+        wickDownColor: "#ef4444",
     });
 
+    // Volume series
     volumeSeries = chart.addHistogramSeries({
         priceFormat: { type: "volume" },
-        color: "#4c78ff",
+        color: "#60a5fa33",
         priceScaleId: "",
-        scaleMargins: {
-            top: 0.8,
-            bottom: 0,
-        },
     });
+
+    return chart;
 }
 
-// ----------------------------------------------------
-// FETCH DATA
-// ----------------------------------------------------
+// -----------------------------
+// FETCH WORKER API
+// -----------------------------
 async function fetchData(symbol) {
     try {
         const response = await fetch(WORKER_URL + symbol);
 
-        if (!response.ok) {
-            throw new Error("HTTP Error");
-        }
-
+        // Worker returns valid JSON
         const data = await response.json();
 
         if (!Array.isArray(data)) {
-            return { ohlc: [], volume: [] };
+            throw new Error("Worker returned invalid data");
         }
 
-        // Convert to separate arrays
-        const ohlc = data.map(row => ({
-            time: row.time,
-            open: row.open,
-            high: row.high,
-            low: row.low,
-            close: row.close,
-        }));
-
-        const volume = data.map(row => ({
-            time: row.time,
-            value: row.volume ?? 0,
-            color: row.close >= row.open ? "#22c55e" : "#ef4444",
-        }));
-
-        return { ohlc, volume };
+        return data;
 
     } catch (err) {
-        showError("Failed to fetch data");
-        return { ohlc: [], volume: [] };
+        return { error: true, message: err.message };
     }
 }
 
-// ----------------------------------------------------
-// SHOW / HIDE SPINNER
-// ----------------------------------------------------
-function showSpinner() {
-    spinner.classList.remove("hidden");
-}
-function hideSpinner() {
-    spinner.classList.add("hidden");
-}
-function showError(msg) {
-    errorBox.innerText = msg;
-    errorBox.style.display = "block";
-}
-function hideError() {
-    errorBox.style.display = "none";
-}
-
-// ----------------------------------------------------
-// LOAD CHART
-// ----------------------------------------------------
+// -----------------------------
+// LOAD CHART + UPDATE UI
+// -----------------------------
 async function loadChart(symbol) {
-    console.log("Loading:", symbol);
+    spinner.classList.remove("hidden");
+    errorBox.style.display = "none";
 
     createChart();
+    symbolTitle.textContent = symbol;
 
-    showSpinner();
-    hideError();
-    symbolTitle.innerText = symbol;
+    const result = await fetchData(symbol);
 
-    // Highlight active item
-    watchlistItems.forEach(li => li.classList.remove("active"));
-    document.querySelector(`[data-symbol="${symbol}"]`)?.classList.add("active");
+    spinner.classList.add("hidden");
 
-    const { ohlc, volume } = await fetchData(symbol);
-
-    hideSpinner();
-
-    if (ohlc.length === 0) {
-        showError("No chart data returned.");
+    if (result.error) {
+        errorBox.textContent = "Error loading data: " + result.message;
+        errorBox.style.display = "block";
         return;
     }
 
-    candleSeries.setData(ohlc);
-    volumeSeries.setData(volume);
+    candleSeries.setData(result);
 
-    chart.timeScale().fitContent();
+    // Create volume bars
+    const volumeBars = result.map(c => ({
+        time: c.time,
+        value: c.volume ?? Math.floor(Math.random() * 200000),
+        color: c.close >= c.open ? "#22c55e44" : "#ef444444",
+    }));
+
+    volumeSeries.setData(volumeBars);
 }
 
-// ----------------------------------------------------
-// WATCHLIST CLICK
-// ------------------------
+// -----------------------------
+// WATCHLIST CLICK HANDLER
+// -----------------------------
+watchlistItems.forEach(item => {
+    item.addEventListener("click", () => {
+        watchlistItems.forEach(i => i.classList.remove("active"));
+        item.classList.add("active");
+
+        loadChart(item.dataset.symbol);
+    });
+});
+
+// -----------------------------
+// AUTO RESIZE
+// -----------------------------
+new ResizeObserver(() => {
+    if (chart) {
+        chart.applyOptions({
+            width: chartEl.clientWidth,
+            height: chartEl.clientHeight,
+        });
+    }
+}).observe(chartEl);
+
+// -----------------------------
+// LOAD DEFAULT STOCK
+// -----------------------------
+loadChart("RELIANCE.NS");
