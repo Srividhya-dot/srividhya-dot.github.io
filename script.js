@@ -16,7 +16,7 @@ async function fetchData(symbol) {
         }
 
         return data.map(c => ({
-            time: c.time,             // already UNIX timestamp
+            time: c.time,             // UNIX timestamp (seconds)
             open: c.open,
             high: c.high,
             low: c.low,
@@ -47,7 +47,14 @@ function createChartIfNeeded() {
         }
     });
 
-    candleSeries = chart.addCandlestickSeries();
+    candleSeries = chart.addCandlestickSeries({
+        upColor: "#4ade80",
+        downColor: "#f87171",
+        borderUpColor: "#4ade80",
+        borderDownColor: "#f87171",
+        wickUpColor: "#4ade80",
+        wickDownColor: "#f87171"
+    });
 }
 
 async function loadChart(symbol) {
@@ -56,7 +63,7 @@ async function loadChart(symbol) {
     const data = await fetchData(symbol);
 
     if (data.length === 0) {
-        console.warn("No data to show");
+        console.warn("No chart data returned");
         return;
     }
 
@@ -73,7 +80,7 @@ function setupWatchlist() {
 
 function init() {
     setupWatchlist();
-    loadChart("RELIANCE.NS"); // default symbol
+    loadChart("RELIANCE.NS"); // Default
 }
 
 init();
