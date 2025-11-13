@@ -5,16 +5,22 @@ const WORKER_URL = "https://black-tree-2e32.sriviadithi.workers.dev/?symbol=";
 
 // HTML references
 const chartDiv = document.getElementById("chart");
-const watchlistItems = document.querySelectorAll("#watchlist li");
+const watchlist = document.getElementById("watchlist");
+const addInput = document.getElementById("add-stock");
+const addBtn = document.getElementById("add-btn");
+
+const timeframeBtns = document.querySelectorAll(".tf-btn");
+
 const spinner = document.getElementById("spinner");
 const errorBox = document.getElementById("error");
 const symbolTitle = document.getElementById("symbol-title");
-const volumeDiv = document.getElementById("volume");
 
-// Global chart + series
+// GLOBALS
 let chart = null;
 let candleSeries = null;
 let volumeSeries = null;
+let currentSymbol = "RELIANCE.NS";
+let currentTimeframe = "1D";
 
 // ----------------------------------------------------
 // CREATE CHART
@@ -25,10 +31,7 @@ function createChart() {
     chart = LightweightCharts.createChart(chartDiv, {
         width: chartDiv.clientWidth,
         height: chartDiv.clientHeight,
-        layout: {
-            backgroundColor: "#0f1724",
-            textColor: "#d1d4dc",
-        },
+        layout: { backgroundColor: "#0f1724", textColor: "#d1d4dc" },
         grid: {
             vertLines: { color: "#253248" },
             horzLines: { color: "#253248" },
@@ -46,23 +49,21 @@ function createChart() {
 
     volumeSeries = chart.addHistogramSeries({
         priceFormat: { type: "volume" },
-        color: "#4c78ff",
         priceScaleId: "",
-        scaleMargins: { top: 0.8, bottom: 0 },
+        scaleMargins: { top: 0.8, bottom: 0 }
     });
 }
 
 // ----------------------------------------------------
-// FETCH DATA
+// FETCH OHLC + LIVE PRICE
 // ----------------------------------------------------
-async function fetchData(symbol) {
+async function fetchData(symbol, tf) {
     try {
-        const response = await fetch(WORKER_URL + symbol);
-
-        if (!response.ok) throw new Error("HTTP error");
+        const response = await fetch(`${WORKER_URL}${symbol}&tf=${tf}`);
+        if (!response.ok) throw new Error();
 
         const raw = await response.json();
-        if (!Array.isArray(raw)) return { ohlc: [], volume: [] };
+        if (!Array.isArray(raw)) return { ohlc: [], volume: [], last: null };
 
         const ohlc = raw.map(r => ({
             time: r.time,
@@ -78,10 +79,10 @@ async function fetchData(symbol) {
             color: r.close >= r.open ? "#22c55e" : "#ef4444",
         }));
 
-        return { ohlc, volume };
-    } catch (err) {
-        showError("Failed to fetch data");
-        return { ohlc: [], volume: [] };
+        return { ohlc, volume, last: raw[raw.length - 1] };
+
+    } catch {
+        return { ohlc: [], volume: [], last: null };
     }
 }
 
@@ -100,47 +101,93 @@ function hideError() {
 }
 
 // ----------------------------------------------------
+// UPDATE LIVE PRICE IN WATCHLIST
+// ----------------------------------------------------
+async function updateWatchlistPrice(symbol, liEl) {
+    const { last } = await fetchData(symbol, "1D");
+
+    if (!last) return;
+
+    const price = last.close.toFixed(2);
+    const change = last.close - last.open;
+    const isUp = change >= 0;
+
+    liEl.innerHTML = `
+        <span>${symbol}</span>
+        <span style="color:${isUp ? "#22c55e" : "#ef4444"}">
+            ${price}
+        </span>
+    `;
+}
+
+// ----------------------------------------------------
 // LOAD CHART
 // ----------------------------------------------------
 async function loadChart(symbol) {
-    console.log("Loading:", symbol);
+    currentSymbol = symbol;
+    hideError();
+    showSpinner();
 
     createChart();
-    showSpinner();
-    hideError();
-
     symbolTitle.textContent = symbol;
 
-    // Highlight selected watchlist item
-    watchlistItems.forEach(li => li.classList.remove("active"));
+    // highlight active
+    document.querySelectorAll("#watchlist li").forEach(li => li.classList.remove("active"));
     document.querySelector(`[data-symbol="${symbol}"]`)?.classList.add("active");
 
-    const { ohlc, volume } = await fetchData(symbol);
+    const { ohlc, volume } = await fetchData(symbol, currentTimeframe);
 
     hideSpinner();
 
     if (ohlc.length === 0) {
-        showError("No chart data returned.");
+        showError("No chart data.");
         return;
     }
 
     candleSeries.setData(ohlc);
     volumeSeries.setData(volume);
-
     chart.timeScale().fitContent();
 }
 
 // ----------------------------------------------------
-// WATCHLIST CLICK EVENTS
+// ADD NEW STOCK TO WATCHLIST
 // ----------------------------------------------------
-watchlistItems.forEach(li => {
-    li.addEventListener("click", () => {
-        const symbol = li.dataset.symbol;
-        loadChart(symbol);
-    });
+function addStock() {
+    const symbol = addInput.value.trim().toUpperCase();
+    if (!symbol) return;
+
+    const li = document.createElement("li");
+    li.dataset.symbol = symbol;
+    li.textContent = symbol;
+
+    li.onclick = () => loadChart(symbol);
+
+    watchlist.appendChild(li);
+
+    updateWatchlistPrice(symbol, li);
+    addInput.value = "";
+}
+
+// ----------------------------------------------------
+// TIMEFRAME BUTTONS
+// ----------------------------------------------------
+timeframeBtns.forEach(btn => {
+    btn.onclick = () => {
+        timeframeBtns.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        currentTimeframe = btn.dataset.tf;
+        loadChart(currentSymbol);
+    };
 });
 
 // ----------------------------------------------------
-// LOAD DEFAULT CHART
+// INITIAL LOAD + REFRESH LIVE PRICES EVERY 60 SEC
 // ----------------------------------------------------
-loadChart("RELIANCE.NS");
+loadChart(currentSymbol);
+
+setInterval(() => {
+    document.querySelectorAll("#watchlist li").forEach(li => {
+        updateWatchlistPrice(li.dataset.symbol, li);
+    });
+}, 60000);
