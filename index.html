@@ -3,202 +3,118 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Pro Charting Dashboard</title>
+<title>Chart + Watchlist Dashboard</title>
 
-<!-- Lightweight Charts -->
-<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<!-- Lightweight Charts CDN (correct & stable version) -->
+<script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
 
 <style>
 :root{
-  --bg:#071122;
-  --panel:#0b2230;
-  --muted:#94a3b8;
-  --accent:#38bdf8;
-  --up:#22c55e;
-  --down:#ef4444;
-  --surface:#0f1724;
+  --bg:#071122; --panel:#0b2230; --muted:#94a3b8; --accent:#38bdf8;
+  --up:#22c55e; --down:#ef4444; --surface:#0f1724;
+  --card:#0f2a37;
 }
+*{box-sizing:border-box;font-family:Inter, Arial, sans-serif}
+html,body{height:100%;margin:0;background:var(--bg);color:#e6eef8}
+.app{display:flex;height:100vh;overflow:hidden}
 
-/* RESET + BASE */
-*{box-sizing:border-box;font-family:Inter,Arial,sans-serif}
-html,body{margin:0;height:100%;background:var(--bg);color:#e6eef8;overflow:hidden}
-
-.app{display:flex;height:100vh;width:100vw;overflow:hidden}
-
-/* LEFT WATCHLIST */
+/* Left Panel */
 .side{
-  width:280px;min-width:280px;
-  background:#081a28;padding:18px;
-  border-right:1px solid rgba(255,255,255,0.04);
-  overflow-y:auto;
+  width:300px;background:#061827;padding:18px;
+  border-right:1px solid rgba(255,255,255,0.08);overflow:auto
 }
-.side h2{margin:0 0 14px;color:var(--accent);font-size:26px}
-
-.search{
-  width:100%;padding:10px 12px;margin-bottom:12px;
-  border-radius:8px;border:none;background:#0d2535;color:#cfe6ff;
-}
-
-.watchlist{list-style:none;padding:0;margin:0}
+.side h2{margin:0 0 12px;color:var(--accent);font-size:26px}
+.search{width:100%;background:#071826;color:#cfe6ff;padding:10px;margin-bottom:12px;border-radius:8px;border:none}
 .watchlist li{
-  padding:14px;margin:8px 0;border-radius:8px;
-  background:#102a39;color:#e6eef8;
-  cursor:pointer;font-weight:600;letter-spacing:0.5px
+  background:#122b36;margin:10px 0;padding:14px;border-radius:8px;cursor:pointer;
+  text-transform:uppercase;font-weight:600
 }
-.watchlist li.active{background:#1b4356}
+.watchlist li.active{background:#244f63}
+.add-row{display:flex;gap:8px;margin-top:10px}
+.add-row input{flex:1;background:#071026;padding:10px;color:#cfe6ff;border-radius:8px;border:none}
+.add-row button{background:var(--accent);color:#01222b;padding:10px 14px;border-radius:8px;border:none}
 
-.add-row{display:flex;gap:8px;margin-top:12px}
-.add-row input{
-  flex:1;padding:10px;border:none;border-radius:8px;
-  background:#0d2535;color:#cfe6ff;
-}
-.add-row button{
-  background:var(--accent);color:#021c28;
-  padding:10px 14px;border:none;border-radius:8px;cursor:pointer;
-}
-
-/* RIBBON INDICATOR BAR (TOP) */
-.ribbon{
-  width:100%;
-  background:#0b2030;
-  padding:12px;
-  display:flex;gap:20px;align-items:center;
-  border-bottom:1px solid rgba(255,255,255,0.05);
-}
-.ribbon-section{
-  display:flex;align-items:center;gap:6px;
-  background:#102634;padding:8px 12px;border-radius:8px;
-}
-.ribbon label{font-size:13px;color:var(--muted)}
-.ribbon input,.ribbon select{
-  padding:6px 8px;border:none;border-radius:6px;
-  background:#0d2535;color:#cfe6ff;
-}
-.ribbon .chk{width:16px;height:16px}
-
-/* MAIN AREA */
-.main{
-  flex:1;display:flex;flex-direction:column;
-  min-width:0;overflow:hidden;
-}
-
-/* TOOLBAR */
+/* Top controls */
 .toolbar{
-  height:60px;display:flex;align-items:center;
-  gap:16px;padding:0 16px;
-  background:#071826;
-  border-bottom:1px solid rgba(255,255,255,0.04);
+  height:70px;background:#0b1e2b;border-bottom:1px solid rgba(255,255,255,0.1);
+  display:flex;align-items:center;gap:12px;padding:0 20px
 }
-.title{font-size:20px;font-weight:700}
-
-.tf-group{display:flex;gap:8px}
+.toolbar input,.toolbar select{
+  background:#091826;border:none;border-radius:6px;color:#d8e4f6;padding:6px 10px;width:55px
+}
 .tf-btn{
-  padding:8px 12px;border:none;border-radius:8px;
-  background:#0e283a;color:#cfe6ff;cursor:pointer;
+  background:#091d2c;border:none;color:#d8e4f6;padding:8px 12px;
+  border-radius:6px;cursor:pointer
 }
-.tf-btn.active{
-  background:var(--accent);color:#021c28;
-}
+.tf-btn.active{background:var(--accent);color:#001b26}
 
-/* CHART */
-.chart-wrap{
-  flex:1;display:flex;position:relative;min-height:0;
-}
-.chart-box{
-  flex:1;padding:0;background:var(--surface);
-  display:flex;flex-direction:column;min-height:0;
-}
+/* Chart */
+.chart-wrap{flex:1;display:flex;flex-direction:column;min-height:0}
 #chart{flex:1;min-height:0}
 
-/* SPINNER + ERROR */
-.spinner, .error{
-  position:absolute;left:50%;top:50%;
-  transform:translate(-50%,-50%);
-  padding:12px 18px;border-radius:8px;
-  font-weight:700;z-index:20
+/* Indicator panel */
+.right{
+  width:360px;background:#06151e;border-left:1px solid rgba(255,255,255,0.1);
+  padding:16px;overflow:auto
 }
-.spinner{background:rgba(0,0,0,0.6)}
-.error{background:#4a1010;color:#ffd2d2;display:none}
+.right h3{margin:0 0 10px;color:var(--accent)}
+.ctrl{margin-bottom:12px}
+.ctrl input{width:100%;padding:8px;background:#071827;border:none;border-radius:6px;color:#cfe6ff}
 
-.hidden{display:none}
-
-@media(max-width:900px){
-  .side{display:none}
-}
+.spinner{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#0008;padding:12px 20px;border-radius:10px}
+.error{display:none;background:#2b0f0f;color:#ffd2d2;padding:10px;border-radius:8px;text-align:center;margin-top:10px}
 </style>
 </head>
-
 <body>
 
 <div class="app">
+
   <!-- LEFT PANEL -->
   <aside class="side">
     <h2>Watchlist</h2>
 
-    <input id="searchInput" class="search" placeholder="Search symbol..." />
-
+    <input id="searchInput" class="search" placeholder="Search symbol..."/>
     <ul id="watchlist" class="watchlist"></ul>
 
     <div class="add-row">
-      <input id="addSymbol" placeholder="Add symbol (e.g., TCS.NS)">
+      <input id="addSymbol" placeholder="Add symbol, e.g. RELIANCE.NS"/>
       <button id="addBtn">Add</button>
     </div>
-  </aside>
 
-  <!-- MAIN AREA -->
-  <main class="main">
-
-    <!-- RIBBON PANEL (TOP INDICATOR CONTROLS) -->
-    <div class="ribbon">
-
-      <div class="ribbon-section">
-        <label>Reliable S/R</label>
-        <input type="checkbox" id="toggleReliable" class="chk" checked>
-        <label>L</label>
-        <input id="pivotLeft" type="number" value="15" min="1" style="width:60px">
-        <label>R</label>
-        <input id="pivotRight" type="number" value="15" min="1" style="width:60px">
-      </div>
-
-      <div class="ribbon-section">
-        <label>LuxAlgo</label>
-        <input type="checkbox" id="toggleLux" class="chk" checked>
-        <label>Len</label>
-        <input id="luxLen1" type="number" value="50" min="2" style="width:60px">
-        <label>Mlt</label>
-        <input id="luxMlt1" type="number" value="2" min="0.1" step="0.1" style="width:60px">
-      </div>
-
-      <div class="ribbon-section">
-        <label>Island</label>
-        <input type="checkbox" id="toggleIsland" class="chk" checked>
-        <label>Trend</label>
-        <input id="islandTrend" type="number" value="10" min="2" style="width:60px">
-        <label>Vol</label>
-        <input type="checkbox" id="islandVolFilter" checked class="chk">
-      </div>
-
-      <div class="ribbon-section">
-        <label>Volume</label>
-        <input type="checkbox" id="showVolume" checked class="chk">
-      </div>
-
-      <div class="ribbon-section">
-        <label>Live (sec)</label>
-        <input id="pollInterval" type="number" value="5" min="2" style="width:70px">
-      </div>
-
-      <button id="applyIndicators" style="padding:8px 16px;border:none;border-radius:8px;background:var(--accent);color:#021c28;cursor:pointer">
-        Apply
-      </button>
-
+    <h3 style="margin-top:20px">Presets</h3>
+    <div class="preset-row">
+      <input id="presetName" placeholder="Preset name" style="flex:1;background:#071826;color:#cfe6ff;border:none;padding:8px;border-radius:8px"/>
+      <button id="savePreset" style="background:var(--accent);padding:8px 14px;border-radius:8px;border:none;color:#00121a">Save</button>
     </div>
 
-    <!-- TOOLBAR: SYMBOL + TIMEFRAMES -->
-    <div class="toolbar">
-      <div class="title" id="symbolTitle">Loading...</div>
+    <button id="exportPresets" style="margin-top:8px;background:#071826;border:1px solid #123;color:#ccc;padding:8px 10px;border-radius:8px;width:100%">Export</button>
 
-      <div class="tf-group" id="timeframes">
+    <div id="presetList" style="margin-top:10px;font-size:13px;color:#9bb">Saved presets:</div>
+  </aside>
+
+  <!-- MAIN PANEL -->
+  <main class="main">
+    <div class="toolbar">
+
+      <!-- S/R -->
+      <span style="color:#9bb">Reliable S/R</span>
+      <input id="pivotLeft" type="number" value="15"/>
+      <input id="pivotRight" type="number" value="15"/>
+      <input id="toggleReliable" type="checkbox" checked/>
+
+      <!-- Lux -->
+      <span style="color:#9bb;margin-left:10px">LuxAlgo</span>
+      <input id="luxLen1" type="number" value="50"/>
+      <input id="luxMlt1" type="number" value="2"/>
+      <input id="toggleLux" type="checkbox" checked/>
+
+      <!-- Island -->
+      <span style="color:#9bb;margin-left:10px">Island</span>
+      <input id="islandTrend" type="number" value="10"/>
+      <input id="toggleIsland" type="checkbox" checked/>
+
+      <!-- Timeframes -->
+      <div style="margin-left:auto;display:flex;gap:6px">
         <button class="tf-btn" data-tf="1m">1m</button>
         <button class="tf-btn" data-tf="5m">5m</button>
         <button class="tf-btn" data-tf="15m">15m</button>
@@ -208,61 +124,71 @@ html,body{margin:0;height:100%;background:var(--bg);color:#e6eef8;overflow:hidde
         <button class="tf-btn" data-tf="1W">1W</button>
         <button class="tf-btn" data-tf="1M">1M</button>
       </div>
+
     </div>
 
     <div class="chart-wrap">
-      <div class="chart-box">
-        <div id="chart"></div>
-        <div id="spinner" class="spinner hidden">Loading...</div>
-        <div id="error" class="error"></div>
-      </div>
+      <div id="chart"></div>
+      <div id="spinner" class="spinner" style="display:none">Loading...</div>
+      <div id="error" class="error"></div>
     </div>
 
   </main>
-</div>
+  <!-- RIGHT PANEL -->
+  <aside class="right">
+    <h3>Indicator Controls</h3>
+
+    <div class="ctrl">
+      <label><input type="checkbox" id="showVolume" checked/> Show Volume</label>
+    </div>
+
+    <div class="ctrl">
+      <label>Reliable S/R: Pivot Left</label>
+      <input id="pivotLeft2" type="number" value="15"/>
+
+      <label style="margin-top:8px">Pivot Right</label>
+      <input id="pivotRight2" type="number" value="15"/>
+    </div>
+
+    <div class="ctrl">
+      <label>LuxAlgo Length</label>
+      <input id="luxLen2" type="number" value="50"/>
+
+      <label style="margin-top:8px">Multiplier</label>
+      <input id="luxMlt2" type="number" value="2"/>
+    </div>
+
+    <div class="ctrl">
+      <label>Island Trend Length</label>
+      <input id="islandTrend2" type="number" value="10"/>
+    </div>
+
+    <button id="applyIndicators" style="background:var(--accent);color:#00131b;padding:10px;border:none;border-radius:8px;width:100%;margin-top:10px">Apply</button>
+
+    <div style="margin-top:20px;color:#9bb;font-size:13px">
+      Live update interval (seconds)
+    </div>
+    <input id="pollInterval" type="number" min="2" value="5" style="margin-top:6px"/>
+
+    <div style="margin-top:10px;color:#678;font-size:12px">
+      During market hours, prices update automatically.
+    </div>
+  </aside>
+
+</div><!-- end .app -->
 
 <script>
-/* ---------------------------------------------
-   CONFIG
----------------------------------------------- */
-const WORKER_URL_YAHOO = "https://black-tree-2e32.sriviadithi.workers.dev/?symbol=";
-const ALPHA_KEY = "C99VSVXV4LQO45SE";  // Your AlphaVantage API Key
-let DATA_SOURCE = "yahoo"; // default (option B selected)
-
+/* -----------------------------------------------------------
+    CONFIG
+------------------------------------------------------------ */
+const ALPHA_KEY = "C99VSVXV4LQO45SE";
 const DEFAULT_SYMBOLS = ["RELIANCE.NS","TCS.NS","INFY.NS","HDFCBANK.NS","ICICIBANK.NS"];
 
-/* DOM REFS */
-const watchlistEl = document.getElementById('watchlist');
-const symbolTitle = document.getElementById('symbolTitle');
-const chartDiv = document.getElementById('chart');
-const spinner = document.getElementById('spinner');
-const errorBox = document.getElementById('error');
+let watchSymbols = JSON.parse(localStorage.getItem("watchSymbols") || "[]");
+if(watchSymbols.length === 0) watchSymbols = DEFAULT_SYMBOLS.slice();
 
-const addSymbolInput = document.getElementById('addSymbol');
-const addBtn = document.getElementById('addBtn');
-const searchInput = document.getElementById('searchInput');
+let presets = JSON.parse(localStorage.getItem("chartPresets") || "{}");
 
-const tfButtons = Array.from(document.querySelectorAll('.tf-btn'));
-
-const toggleReliable = document.getElementById('toggleReliable');
-const toggleLux = document.getElementById('toggleLux');
-const toggleIsland = document.getElementById('toggleIsland');
-const showVolume = document.getElementById('showVolume');
-
-const pivotLeft = document.getElementById('pivotLeft');
-const pivotRight = document.getElementById('pivotRight');
-
-const luxLen1 = document.getElementById('luxLen1');
-const luxMlt1 = document.getElementById('luxMlt1');
-
-const islandTrend = document.getElementById('islandTrend');
-const islandVolFilter = document.getElementById('islandVolFilter');
-
-const pollIntervalInput = document.getElementById('pollInterval');
-const applyIndicatorsBtn = document.getElementById('applyIndicators');
-
-/* STATE */
-let watchSymbols = JSON.parse(localStorage.getItem('watchSymbols')) || DEFAULT_SYMBOLS.slice();
 let chart = null;
 let candleSeries = null;
 let volumeSeries = null;
@@ -270,516 +196,411 @@ let srLines = [];
 let lastSymbol = null;
 let activeTF = "1D";
 
+/* IMPORTANT — only declare pollTimer ONCE */
+let pollTimer = null;
 
-/* ---------------------------------------------
-   CHART INIT
----------------------------------------------- */
-function createChart(){
-  if(chart) return;
 
-  chart = LightweightCharts.createChart(chartDiv, {
-    layout:{ backgroundColor:"#0f1724", textColor:"#d1d4dc"},
-    rightPriceScale:{ borderColor:"#485c7b" },
-    timeScale:{ borderColor:"#485c7b", timeVisible:true, secondsVisible:false },
-    grid:{ vertLines:{color:"#253248"}, horzLines:{color:"#253248"} }
+/* -----------------------------------------------------------
+    DOM REFS
+------------------------------------------------------------ */
+const chartDiv = document.getElementById("chart");
+const spinner = document.getElementById("spinner");
+const errorBox = document.getElementById("error");
+
+const watchlistEl = document.getElementById("watchlist");
+const addSymbolInput = document.getElementById("addSymbol");
+const addBtn = document.getElementById("addBtn");
+const searchInput = document.getElementById("searchInput");
+
+const showVolume = document.getElementById("showVolume");
+
+const pivotLeft = document.getElementById("pivotLeft");
+const pivotRight = document.getElementById("pivotRight");
+const luxLen1 = document.getElementById("luxLen1");
+const luxMlt1 = document.getElementById("luxMlt1");
+const islandTrend = document.getElementById("islandTrend");
+const toggleReliable = document.getElementById("toggleReliable");
+const toggleLux = document.getElementById("toggleLux");
+const toggleIsland = document.getElementById("toggleIsland");
+
+const presetName = document.getElementById("presetName");
+const savePresetBtn = document.getElementById("savePreset");
+const presetList = document.getElementById("presetList");
+const exportPresetsBtn = document.getElementById("exportPresets");
+
+const applyIndicatorsBtn = document.getElementById("applyIndicators");
+const pollIntervalInput = document.getElementById("pollInterval");
+
+const tfButtons = Array.from(document.querySelectorAll(".tf-btn"));
+
+/* -----------------------------------------------------------
+    UTILITIES
+------------------------------------------------------------ */
+function showSpinner(){ spinner.style.display = "block"; }
+function hideSpinner(){ spinner.style.display = "none"; }
+function showError(msg){ errorBox.style.display="block"; errorBox.textContent = msg; }
+function hideError(){ errorBox.style.display="none"; }
+/* -----------------------------------------------------------
+    WATCHLIST RENDERING
+------------------------------------------------------------ */
+function renderWatchlist(){
+  watchlistEl.innerHTML = "";
+  watchSymbols.forEach(sym=>{
+    const li = document.createElement("li");
+    li.textContent = sym;
+    li.dataset.symbol = sym;
+    li.addEventListener("click", ()=> loadChart(sym));
+    watchlistEl.appendChild(li);
+  });
+  highlightActive(lastSymbol);
+}
+
+function highlightActive(symbol){
+  Array.from(watchlistEl.children).forEach(li=>{
+    li.classList.toggle("active", li.dataset.symbol === symbol);
+  });
+}
+
+addBtn.addEventListener("click", ()=>{
+  const v = (addSymbolInput.value || "").trim().toUpperCase();
+  if(!v) return;
+  if(!watchSymbols.includes(v)){
+    watchSymbols.unshift(v);
+    localStorage.setItem("watchSymbols", JSON.stringify(watchSymbols));
+    renderWatchlist();
+  }
+  addSymbolInput.value = "";
+  loadChart(v);
+});
+
+searchInput.addEventListener("input", e=>{
+  const q = e.target.value.toLowerCase();
+  Array.from(watchlistEl.children).forEach(li=>{
+    li.style.display = li.textContent.toLowerCase().includes(q) ? "" : "none";
+  });
+});
+
+
+/* -----------------------------------------------------------
+    TIMEFRAME SWITCH
+------------------------------------------------------------ */
+tfButtons.forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    tfButtons.forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    activeTF = btn.dataset.tf;
+    if(lastSymbol) loadChart(lastSymbol);
+  });
+});
+
+
+/* -----------------------------------------------------------
+    PRESETS
+------------------------------------------------------------ */
+function renderPresets(){
+  presetList.innerHTML = "Saved presets:";
+  const keys = Object.keys(presets);
+  if(keys.length === 0){
+    presetList.innerHTML += `<div style="color:#789;margin-top:8px">None saved</div>`;
+    return;
+  }
+  keys.forEach(name=>{
+    const row = document.createElement("div");
+    row.style.marginTop = "6px";
+    row.innerHTML = `
+      <strong>${name}</strong>
+      <button class="loadPreset" data-name="${name}">Load</button>
+      <button class="delPreset" data-name="${name}">Delete</button>
+    `;
+    presetList.appendChild(row);
   });
 
-  candleSeries = chart.addCandlestickSeries({
-    upColor:"#22c55e",
-    downColor:"#ef4444",
-    borderVisible:true,
-    wickVisible:true
-  });
-
-  volumeSeries = chart.addHistogramSeries({
-    priceFormat:{ type:'volume' },
-    priceScaleId:'',
-    scaleMargins:{ top:0.8, bottom:0 }
-  });
-}
-/* ---------------------------------------------
-   FETCH — YAHOO FINANCE (default)
----------------------------------------------- */
-async function fetchYahoo(symbol, range='1y', gran='1d') {
-  const url = WORKER_URL_YAHOO + encodeURIComponent(symbol) + `&range=${range}&interval=${gran}`;
-  try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error(res.status);
-
-    const json = await res.json();
-
-    // Worker returns simple array
-    if (Array.isArray(json))
-      return json.map(normalizeBar);
-
-    // Yahoo JSON structure
-    if (json?.chart?.result?.[0]) {
-      const r = json.chart.result[0];
-      const timestamps = r.timestamp;
-      const q = r.indicators?.quote?.[0];
-
-      if (Array.isArray(timestamps) && q) {
-        const out = [];
-        for (let i = 0; i < timestamps.length; i++) {
-          const o = q.open?.[i];
-          const h = q.high?.[i];
-          const l = q.low?.[i];
-          const c = q.close?.[i];
-          const v = q.volume?.[i] ?? 0;
-          if (o == null || h == null || l == null || c == null) continue;
-
-          out.push({
-            time: timestamps[i],
-            open: o,
-            high: h,
-            low: l,
-            close: c,
-            volume: v
-          });
-        }
-        return out.map(normalizeBar);
-      }
-    }
-
-    return [];
-
-  } catch (err) {
-    console.error("Yahoo fetch error", err);
-    return [];
-  }
-}
-
-/* ---------------------------------------------
-   FETCH — ALPHA VANTAGE (Intraday + Daily)
----------------------------------------------- */
-async function fetchAlpha(symbol, interval="1min") {
-  const url =
-    `https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=${symbol}` +
-    `&interval=${interval}&apikey=${ALPHA_KEY}&outputsize=full`;
-
-  try {
-    const res = await fetch(url, { cache: "no-store" });
-    const json = await res.json();
-
-    const key = Object.keys(json).find(k => k.includes("Time Series"));
-    if (!key) return [];
-
-    const series = json[key];
-    const out = [];
-
-    for (const t in series) {
-      const row = series[t];
-      const ts = Math.floor(new Date(t).getTime() / 1000);
-      out.push({
-        time: ts,
-        open: +row["1. open"],
-        high: +row["2. high"],
-        low: +row["3. low"],
-        close: +row["4. close"],
-        volume: +row["5. volume"]
-      });
-    }
-
-    return out.sort((a, b) => a.time - b.time);
-
-  } catch (err) {
-    console.error("Alpha fetch error", err);
-    return [];
-  }
-}
-
-/* ---------------------------------------------
-   UNIVERSAL FETCH WRAPPER
----------------------------------------------- */
-async function fetchOHLC(symbol, range='1y', gran='1d'){
-
-  if (DATA_SOURCE === "alpha") {
-    // Convert granularity
-    let intv = "1min";
-    if (gran === "5m") intv = "5min";
-    if (gran === "15m") intv = "15min";
-    if (gran === "30m") intv = "30min";
-    if (gran === "60m") intv = "60min";
-
-    return fetchAlpha(symbol, intv);
-  }
-
-  // Fallback to Yahoo
-  return fetchYahoo(symbol, range, gran);
-}
-
-/* ---------------------------------------------
-   NORMALIZATION
----------------------------------------------- */
-function normalizeBar(b) {
-  let t = b.time;
-  if (t > 1e12) t = Math.floor(t / 1000); // ms → sec
-  return {
-    time: t,
-    open: +b.open,
-    high: +b.high,
-    low: +b.low,
-    close: +b.close,
-    volume: +(b.volume || 0),
-  };
-}
-
-/* ---------------------------------------------
-   TIMEFRAME CONVERSION
----------------------------------------------- */
-const tfSeconds = {
-  "1m": 60,
-  "5m": 300,
-  "15m": 900,
-  "30m": 1800,
-  "60m": 3600,
-  "1D": 86400,
-  "1W": 86400 * 7,
-  "1M": 86400 * 30
-};
-
-function convertToTF(bars, srcSec, tf) {
-  const target = tfSeconds[tf] || 86400;
-
-  // If matching — no conversion
-  if (srcSec === target) return bars.slice();
-
-  // If going to higher TF (aggregate)
-  if (target > srcSec) {
-    const groups = new Map();
-    for (const b of bars) {
-      const k = Math.floor(b.time / target);
-      if (!groups.has(k)) groups.set(k, []);
-      groups.get(k).push(b);
-    }
-
-    const out = [];
-    groups.forEach(arr => {
-      const o = arr[0].open;
-      const c = arr[arr.length - 1].close;
-      const h = Math.max(...arr.map(x => x.high));
-      const l = Math.min(...arr.map(x => x.low));
-      const v = arr.reduce((s, x) => s + x.volume, 0);
-
-      out.push({
-        time: arr[0].time,
-        open: o, high: h, low: l, close: c, volume: v
-      });
+  document.querySelectorAll(".loadPreset").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      const p = presets[b.dataset.name];
+      applyPreset(p);
     });
+  });
 
-    return out;
-  }
-
-  // If lower TF but only daily data → synthesize (approx)
-  const out = [];
-  const parts = Math.floor(86400 / target);
-
-  for (const d of bars) {
-    const step = (d.close - d.open) / parts;
-
-    for (let i = 0; i < parts; i++) {
-      const o = d.open + step * i;
-      const c = d.open + step * (i + 1);
-
-      out.push({
-        time: d.time + i * target,
-        open: o,
-        high: Math.max(o, c, d.high),
-        low: Math.min(o, c, d.low),
-        close: c,
-        volume: Math.floor(d.volume / parts)
-      });
-    }
-  }
-
-  return out;
+  document.querySelectorAll(".delPreset").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      delete presets[b.dataset.name];
+      localStorage.setItem("chartPresets", JSON.stringify(presets));
+      renderPresets();
+    });
+  });
 }
 
-/* ---------------------------------------------
-   INDICATOR — RELIABLE SUPPORT / RESISTANCE
----------------------------------------------- */
+savePresetBtn.addEventListener("click", ()=>{
+  const name = (presetName.value || "").trim();
+  if(!name){ alert("Enter name"); return; }
+
+  presets[name] = {
+    left: pivotLeft.valueAsNumber,
+    right: pivotRight.valueAsNumber,
+    len: luxLen1.valueAsNumber,
+    mlt: luxMlt1.valueAsNumber,
+    island: islandTrend.valueAsNumber,
+    reliable: toggleReliable.checked,
+    lux: toggleLux.checked,
+    isl: toggleIsland.checked
+  };
+  localStorage.setItem("chartPresets", JSON.stringify(presets));
+  renderPresets();
+  presetName.value = "";
+});
+
+exportPresetsBtn.addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify(presets,null,2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "presets.json";
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+function applyPreset(p){
+  pivotLeft.value = p.left;
+  pivotRight.value = p.right;
+  luxLen1.value = p.len;
+  luxMlt1.value = p.mlt;
+  islandTrend.value = p.island;
+
+  toggleReliable.checked = p.reliable;
+  toggleLux.checked = p.lux;
+  toggleIsland.checked = p.isl;
+
+  if(lastSymbol) loadChart(lastSymbol);
+}
+
+
+/* -----------------------------------------------------------
+    ALPHA VANTAGE + YAHOO API FETCHER (AUTO-FALLBACK)
+------------------------------------------------------------ */
+async function fetchOHLC(symbol, tf="1D"){
+  const isDaily = tf === "1D" || tf === "1W" || tf === "1M";
+  const alphaFn = isDaily ? "TIME_SERIES_DAILY_ADJUSTED" : "TIME_SERIES_INTRADAY";
+
+  let interval = "15min";
+  if(tf === "5m") interval = "5min";
+  if(tf === "1m") interval = "1min";
+  if(tf === "30m") interval = "30min";
+  if(tf === "60m") interval = "60min";
+
+  /* -------------------------------------
+        TRY ALPHA VANTAGE FIRST
+  -------------------------------------- */
+  try{
+    const url = isDaily
+      ? `https://www.alphavantage.co/query?function=${alphaFn}&symbol=${symbol}&apikey=${ALPHA_KEY}`
+      : `https://www.alphavantage.co/query?function=${alphaFn}&symbol=${symbol}&interval=${interval}&apikey=${ALPHA_KEY}`;
+
+    const res = await fetch(url);
+    const json = await res.json();
+
+    let key = isDaily ? "Time Series (Daily)" : `Time Series (${interval})`;
+
+    if(json[key]){
+      return Object.entries(json[key]).map(([date, ohlc])=>({
+        time: Math.floor(new Date(date).getTime()/1000),
+        open: +ohlc["1. open"],
+        high: +ohlc["2. high"],
+        low: +ohlc["3. low"],
+        close: +ohlc["4. close"],
+        volume: +ohlc["6. volume"] || +ohlc["5. volume"] || 0
+      })).reverse();
+    }
+  }catch(e){
+    console.warn("Alpha error",e);
+  }
+
+  /* -------------------------------------
+        FALLBACK: YAHOO FINANCE
+  -------------------------------------- */
+  try{
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=1y`;
+    const res = await fetch(url);
+    const j = await res.json();
+
+    const r = j.chart.result[0];
+    const t = r.timestamp;
+    const q = r.indicators.quote[0];
+
+    return t.map((ts,i)=>({
+      time: ts,
+      open: q.open[i],
+      high: q.high[i],
+      low: q.low[i],
+      close: q.close[i],
+      volume: q.volume[i] || 0
+    }));
+  }catch(e){
+    console.warn("Yahoo fallback error",e);
+  }
+
+  return [];
+}
+/* -----------------------------------------------------------
+    INDICATOR LOGIC
+------------------------------------------------------------ */
+
+/* ---------- Reliable S/R ---------- */
 function computeReliableSR(bars, L=15, R=15){
-  const out = [];
-
-  for (let i = L; i < bars.length - R; i++) {
-    // pivot high
-    let isPH = true;
-    for (let j = i - L; j <= i + R; j++) {
-      if (bars[i].high < bars[j].high) { isPH = false; break; }
-    }
-
-    // pivot low
-    let isPL = true;
-    for (let j = i - L; j <= i + R; j++) {
-      if (bars[i].low > bars[j].low) { isPL = false; break; }
-    }
-
-    if (isPH) out.push({ price: bars[i].high, color:"#ef4444", width:2 });
-    if (isPL) out.push({ price: bars[i].low, color:"#22c55e", width:2 });
-  }
-
-  // Clean duplicates
-  const merged = [];
-  for (const lv of out) {
-    const f = merged.find(m => Math.abs(m.price - lv.price) < lv.price * 0.002);
-    if (!f) merged.push(lv);
-  }
-
-  return merged;
-}
-
-/* ---------------------------------------------
-   INDICATOR — SIMPLE LUX SR (SMA + bands)
----------------------------------------------- */
-function computeLuxSR(bars, len=50, mlt=2) {
-  if (bars.length < len) return [];
-
-  const closes = bars.map(b => b.close);
   const levels = [];
-
-  let sum = 0;
-  for (let i = 0; i < closes.length; i++) {
-    sum += closes[i];
-    if (i >= len) sum -= closes[i - len];
-
-    if (i >= len - 1) {
-      const sma = sum / len;
-      const win = closes.slice(i - len + 1, i + 1);
-      const mean = sma;
-      const std = Math.sqrt(win.reduce((s, x) => s + (x - mean) ** 2, 0) / len);
-
-      levels.push({
-        sma,
-        upper: sma + mlt * std,
-        lower: sma - mlt * std
-      });
+  for(let i=L; i<bars.length-R; i++){
+    let ph = true, pl = true;
+    for(let j=i-L; j<=i+R; j++){
+      if(bars[j].high > bars[i].high) ph = false;
+      if(bars[j].low < bars[i].low) pl = false;
     }
+    if(ph) levels.push({price: bars[i].high, color:"#f55"});
+    if(pl) levels.push({price: bars[i].low, color:"#5f5"});
   }
-
-  const last = levels[levels.length - 1];
-  return [
-    { price: last.upper, color:"#ffd166", width:1 },
-    { price: last.sma, color:"#60a5fa", width:2 },
-    { price: last.lower, color:"#7c3aed", width:1 }
-  ];
+  return levels;
 }
 
-/* ---------------------------------------------
-   INDICATOR — ISLAND REVERSALS (simple)
----------------------------------------------- */
-function computeIslandReversals(bars, trendLen=10, volFilter=true){
-  const out = [];
-
-  for (let i = 1; i < bars.length - 1; i++) {
-    const prev = bars[i - 1];
-    const cur = bars[i];
-    const next = bars[i + 1];
-
-    // bullish island
-    if (cur.low > prev.high && next.high < cur.low) {
-      if (volFilter) {
-        let avg = 0;
-        for (let j = Math.max(0, i - trendLen); j < i; j++)
-          avg += bars[j].volume;
-        avg = avg / Math.min(i, trendLen);
-        if (cur.volume < avg) continue;
-      }
-      out.push({ top: cur.high, bottom: cur.low, bullish: true });
-    }
-
-    // bearish island
-    if (cur.high < prev.low && next.low > cur.high) {
-      if (volFilter) {
-        let avg = 0;
-        for (let j = Math.max(0, i - trendLen); j < i; j++)
-          avg += bars[j].volume;
-        avg = avg / Math.min(i, trendLen);
-        if (cur.volume < avg) continue;
-      }
-      out.push({ top: cur.high, bottom: cur.low, bullish: false });
-    }
+/* ---------- LuxAlgo Simplified ---------- */
+function computeLuxSR(bars,len=50,mlt=2){
+  if(bars.length < len) return [];
+  let out = [];
+  for(let i=len;i<bars.length;i++){
+    const slice = bars.slice(i-len,i);
+    const avg = slice.reduce((a,b)=>a+b.close,0)/len;
+    const variance = slice.reduce((s,b)=> s + (b.close-avg)**2,0)/len;
+    const stdev = Math.sqrt(variance);
+    out = [
+      {price: avg + stdev*mlt, color:"#ffcc00"},
+      {price: avg,             color:"#66aaff"},
+      {price: avg - stdev*mlt, color:"#aa55ff"}
+    ];
   }
-
   return out;
 }
-/* -------------------------------------------------
-   CLEAR OLD INDICATORS
--------------------------------------------------- */
-let currentLines = [];
 
-function clearIndicators() {
-  for (const line of currentLines) {
-    try { candleSeries.removePriceLine(line); } catch(e){}
+/* ---------- Island Reversals ---------- */
+function computeIsland(bars,trend=10){
+  const islands = [];
+  for(let i=2;i<bars.length-2;i++){
+    const p = bars[i-1];
+    const c = bars[i];
+    const n = bars[i+1];
+
+    // Bullish island
+    if(c.low > p.high && n.high < c.low){
+      islands.push({top:c.high, bottom:c.low, color:"rgba(0,255,128,0.12)"});
+    }
+
+    // Bearish island
+    if(c.high < p.low && n.low > c.high){
+      islands.push({top:c.high, bottom:c.low, color:"rgba(255,80,80,0.12)"});
+    }
   }
-  currentLines = [];
+  return islands;
 }
 
-/* -------------------------------------------------
-   DRAW HORIZONTAL S/R LEVELS
--------------------------------------------------- */
-function drawSR(levels) {
-  for (const L of levels) {
+/* -----------------------------------------------------------
+    CHART CLEAR & DRAW
+------------------------------------------------------------ */
+function clearIndicators(){
+  srLines.forEach(line=>{
+    try{ candleSeries.removePriceLine(line); }catch(_) {}
+  });
+  srLines = [];
+}
+
+function drawHorizontal(levels){
+  levels.forEach(L=>{
     const pl = candleSeries.createPriceLine({
       price: L.price,
       color: L.color,
-      lineWidth: L.width,
-      axisLabelVisible: true
-    });
-    currentLines.push(pl);
-  }
-}
-
-/* -------------------------------------------------
-   DRAW ISLAND REVERSALS (TOP & BOTTOM LINES)
--------------------------------------------------- */
-function drawIslands(islands){
-  for (const I of islands) {
-    const col = I.bullish ? "rgba(8,153,129,0.25)" : "rgba(242,54,69,0.25)";
-    const top = candleSeries.createPriceLine({
-      price: I.top,
-      color: col,
       lineWidth: 2,
       axisLabelVisible: true
     });
-    const bottom = candleSeries.createPriceLine({
-      price: I.bottom,
-      color: col,
-      lineWidth: 2,
-      axisLabelVisible: true
-    });
-    currentLines.push(top, bottom);
-  }
+    srLines.push(pl);
+  });
 }
 
-/* -------------------------------------------------
-   LOAD CHART (MAIN)
--------------------------------------------------- */
-async function loadChart(symbol) {
+function drawIslands(arr){
+  arr.forEach(i=>{
+    const top = candleSeries.createPriceLine({price:i.top,color:i.color});
+    const bottom = candleSeries.createPriceLine({price:i.bottom,color:i.color});
+    srLines.push(top,bottom);
+  });
+}
+
+
+/* -----------------------------------------------------------
+    MAIN: LOAD CHART
+------------------------------------------------------------ */
+async function loadChart(symbol){
   lastSymbol = symbol;
-  attachActiveToList(symbol);
-  createChart();
-  hideError();
-  showSpinner();
+  highlightActive(symbol);
   symbolTitle.textContent = symbol;
+  clearIndicators();
+  showLoading();
 
-  /* FETCH RAW */
-  const raw = await fetchOHLC(symbol, "1y", "1d");
-  hideSpinner();
+  createChart();
 
-  if (!raw || raw.length === 0) {
-    showError("No data for " + symbol);
+  const bars = await fetchOHLC(symbol, activeTF);
+  hideLoading();
+
+  if(!bars.length){
+    showError("No data returned");
     return;
   }
 
-  // sort ascending
-  raw.sort((a, b) => a.time - b.time);
+  candleSeries.setData(bars.map(b=>({
+    time:b.time,
+    open:b.open,
+    high:b.high,
+    low:b.low,
+    close:b.close
+  })));
 
-  /* DETECT SOURCE PERIOD */
-  let srcSec = 86400;
-  if (raw.length >= 2) {
-    const diff = raw[1].time - raw[0].time;
-    if (diff > 1) srcSec = diff;
-  }
-
-  /* TIMEFRAME CONVERSION */
-  const converted = convertToTF(raw, srcSec, activeTF);
-
-  /* CHART SET DATA */
-  candleSeries.setData(
-    converted.map(b => ({
-      time: b.time,
-      open: b.open,
-      high: b.high,
-      low: b.low,
-      close: b.close
-    }))
-  );
-
-  if (showVolume.checked) {
-    volumeSeries.setData(
-      converted.map(b => ({
-        time: b.time,
-        value: b.volume,
-        color: b.close >= b.open ? "#22c55e" : "#ef4444"
-      }))
-    );
-  } else {
+  /* ---- Volume ---- */
+  if(showVolume.checked){
+    volumeSeries.setData(bars.map(b=>({
+      time:b.time,
+      value:b.volume,
+      color: b.close >= b.open ? "#4caf50" : "#ff5252"
+    })));
+  }else{
     volumeSeries.setData([]);
   }
 
-  chart.timeScale().fitContent();
-
-  /* INDICATORS */
+  /* ---- Indicators ---- */
   clearIndicators();
 
-  if (toggleReliable.checked) {
-    const sr = computeReliableSR(converted, pivotLeft.valueAsNumber, pivotRight.valueAsNumber);
-    drawSR(sr);
+  if(toggleReliable.checked){
+    drawHorizontal(
+      computeReliableSR(bars, pivotLeft.valueAsNumber, pivotRight.valueAsNumber)
+    );
   }
-  if (toggleLux.checked) {
-    const lux = computeLuxSR(converted, luxLen1.valueAsNumber, luxMlt1.valueAsNumber);
-    drawSR(lux);
+  if(toggleLux.checked){
+    drawHorizontal(
+      computeLuxSR(bars, luxLen1.valueAsNumber, luxMlt1.valueAsNumber)
+    );
   }
-  if (toggleIsland.checked) {
-    const isl = computeIslandReversals(converted, islandTrend.valueAsNumber, islandVolFilter.checked);
-    drawIslands(isl);
+  if(toggleIsland.checked){
+    drawIslands(computeIsland(bars, islandTrend.valueAsNumber));
   }
 
-  setupLivePolling(symbol);
+  chart.timeScale().fitContent();
 }
 
-/* -------------------------------------------------
-   LIVE POLLING (ONLY DURING MARKET HOURS)
--------------------------------------------------- */
-let pollTimer = null;
 
-function isTradingNow() {
-  const d = new Date();
-  const h = d.getHours();
-  const m = d.getMinutes();
-  // NSE trading 9:15–15:30 (safe margin)
-  if (h < 9 || (h === 9 && m < 15)) return false;
-  if (h > 15 || (h === 15 && m > 30)) return false;
-  return true;
-}
+/* -----------------------------------------------------------
+    STARTUP
+------------------------------------------------------------ */
+renderWatchlist();
+renderPresets();
+loadChart(watchSymbols[0] || "RELIANCE.NS");
 
-async function fetchLatestDaily(symbol) {
-  const data = await fetchOHLC(symbol, "5d", "1d");
-  if (!data.length) return null;
-  return data[data.length - 1];
-}
 
-function setupLivePolling(symbol) {
-  if (pollTimer) clearInterval(pollTimer);
-
-  const interval = Math.max(2, pollIntervalInput.valueAsNumber || 5);
-
-  pollTimer = setInterval(async () => {
-    if (!isTradingNow()) return;
-
-    const last = await fetchLatestDaily(symbol);
-    if (!last) return;
-
-    // Quick update: reload chart (safer)
-    loadChart(symbol);
-
-  }, interval * 1000);
-}
-
-/* -------------------------------------------------
-   APPLY INDICATORS BUTTON
--------------------------------------------------- */
-applyIndicatorsBtn.addEventListener("click", () => {
-  if (lastSymbol) loadChart(lastSymbol);
-});
-
-/* -------------------------------------------------
-   INIT: LOAD FIRST SYMBOL
--------------------------------------------------- */
-if (watchSymbols.length > 0) {
-  loadChart(watchSymbols[0]);
-}
-
+/* -----------------------------------------------------------
+    END
+------------------------------------------------------------ */
 </script>
 </body>
 </html>
