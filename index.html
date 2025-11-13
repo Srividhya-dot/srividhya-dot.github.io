@@ -7,11 +7,14 @@
 
   <link rel="stylesheet" href="style.css">
 
-  <!-- Lightweight Charts -->
-  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+  <!-- Lightweight Charts (pinned stable release) -->
+  <script src="https://unpkg.com/lightweight-charts@3.9.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
+
 <body>
   <div id="app">
+    
+    <!-- Sidebar -->
     <aside class="sidebar">
       <h1>Watchlist</h1>
       <input id="search" placeholder="Search stock..." autocomplete="off" />
@@ -24,18 +27,20 @@
       </ul>
     </aside>
 
+    <!-- Chart Area -->
     <main class="chart-area">
       <div id="toolbar">
         <div id="symbol-title">Loading...</div>
       </div>
 
       <div id="chart-wrapper">
-        <div id="chart" ></div>
-        <div id="volume" ></div>
+        <div id="chart"></div>
+        <div id="volume"></div>
         <div id="spinner" class="hidden">Loading…</div>
         <div id="error" class="hidden"></div>
       </div>
     </main>
+
   </div>
 
   <script src="script.js"></script>
