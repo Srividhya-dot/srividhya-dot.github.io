@@ -1,10 +1,6 @@
 function loadChart(symbol) {
-  const container = document.getElementById("chart-container");
+  document.getElementById("chart-container").innerHTML = "";
 
-  // Clear previous chart
-  container.innerHTML = "";
-
-  // Create TradingView widget
   new TradingView.widget({
     autosize: true,
     symbol: symbol,
@@ -14,26 +10,20 @@ function loadChart(symbol) {
     theme: "dark",
     style: "1",
     locale: "en",
-    enable_publishing: false,
     container_id: "chart-container"
   });
 }
 
-// Load default chart
-loadChart("RELIANCE.NS");
+loadChart("RELIANCE.NS");  // default
 
-// Click watchlist to load new chart
 document.querySelectorAll("#watchlist li").forEach(item => {
   item.addEventListener("click", () => {
-    const symbol = item.getAttribute("data-symbol");
-    loadChart(symbol);
+    loadChart(item.dataset.symbol);
   });
 });
 
-// Search filter
 document.getElementById("search").addEventListener("input", e => {
-  const value = e.target.value.toUpperCase();
-
+  let value = e.target.value.toUpperCase();
   document.querySelectorAll("#watchlist li").forEach(li => {
     li.style.display = li.textContent.toUpperCase().includes(value)
       ? ""
