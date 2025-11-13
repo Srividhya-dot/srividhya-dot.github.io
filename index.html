@@ -1,64 +1,250 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Trading Chakra</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trading Chakra</title>
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css" />
 
-    <!-- Lightweight Charts -->
-    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+  <!-- Lightweight Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+
+  <style>
+    /* Prevent chart canvas overflow */
+    #chart, #volume {
+      width: 100%;
+    }
+  </style>
 </head>
 
 <body>
 <div id="app">
 
-    <!-- --------------------------------- -->
-    <!-- LEFT SIDEBAR -->
-    <!-- --------------------------------- -->
-    <aside class="sidebar">
-        <h1>Watchlist</h1>
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <h1>Watchlist</h1>
 
-        <input id="search" type="text" placeholder="Search stock...">
+    <input id="search" type="text" placeholder="Search stock...">
 
-        <ul id="watchlist">
-            <li data-symbol="RELIANCE.NS">RELIANCE</li>
-            <li data-symbol="TCS.NS">TCS</li>
-            <li data-symbol="INFY.NS">INFY</li>
-            <li data-symbol="HDFCBANK.NS">HDFCBANK</li>
-            <li data-symbol="ICICIBANK.NS">ICICIBANK</li>
-        </ul>
-    </aside>
+    <ul id="watchlist">
+      <li data-symbol="RELIANCE.NS">RELIANCE</li>
+      <li data-symbol="TCS.NS">TCS</li>
+      <li data-symbol="INFY.NS">INFY</li>
+      <li data-symbol="HDFCBANK.NS">HDFCBANK</li>
+      <li data-symbol="ICICIBANK.NS">ICICIBANK</li>
+    </ul>
 
-    <!-- --------------------------------- -->
-    <!-- MAIN CHART AREA -->
-    <!-- --------------------------------- -->
-    <main class="chart-area">
+    <!-- ADD STOCK BOX -->
+    <div style="display:flex; gap:6px; margin-top:10px;">
+      <input id="add-stock" type="text" placeholder="Add symbol..." style="flex:1;">
+      <button id="add-btn">Add</button>
+    </div>
+  </aside>
 
-        <!-- TOP TOOLBAR -->
-        <div id="toolbar">
-            <span id="symbol-title">Loading...</span>
-        </div>
+  <!-- CHART AREA -->
+  <main class="chart-area">
+    <div id="toolbar">
+      <span id="symbol-title">Loading...</span>
+    </div>
 
-        <!-- CHART + VOLUME CONTAINER -->
-        <div id="chart-wrapper">
-            <div id="chart"></div>
-            <div id="volume"></div>
+    <div id="chart-wrapper">
+      <div id="chart"></div>
+      <div id="volume"></div>
 
-            <!-- CENTER SPINNER -->
-            <div id="spinner">Loading...</div>
-
-            <!-- ERROR BOX -->
-            <div id="error"></div>
-        </div>
-
-    </main>
+      <div id="spinner">Loading...</div>
+      <div id="error"></div>
+    </div>
+  </main>
 </div>
 
-<!-- SCRIPT -->
-<script src="script.js"></script>
+<!-- APP SCRIPT -->
+<script>
+/* ----------------------------------------------------
+   CONFIG
+---------------------------------------------------- */
+const WORKER_URL = "https://black-tree-2e32.sriviadithi.workers.dev/?symbol=";
+
+// HTML references
+const chartDiv = document.getElementById("chart");
+const volumeDiv = document.getElementById("volume");
+const watchlistUL = document.getElementById("watchlist");
+const watchlistItems = document.querySelectorAll("#watchlist li");
+const spinner = document.getElementById("spinner");
+const errorBox = document.getElementById("error");
+const symbolTitle = document.getElementById("symbol-title");
+
+// Dynamic add
+const addInput = document.getElementById("add-stock");
+const addBtn = document.getElementById("add-btn");
+
+// Global chart
+let chart = null;
+let candleSeries = null;
+let volumeSeries = null;
+
+/* ----------------------------------------------------
+   CREATE CHART (ONE TIME)
+---------------------------------------------------- */
+function createChart() {
+    if (chart) return;
+
+    chart = LightweightCharts.createChart(chartDiv, {
+        width: chartDiv.clientWidth,
+        height: chartDiv.clientHeight,
+        layout: { backgroundColor: "#0f1724", textColor: "#d1d4dc" },
+        grid: {
+            vertLines: { color: "#253248" },
+            horzLines: { color: "#253248" },
+        },
+        rightPriceScale: { borderColor: "#485c7b" },
+        timeScale: { borderColor: "#485c7b" }
+    });
+
+    candleSeries = chart.addCandlestickSeries({
+        upColor: "#22c55e",
+        downColor: "#ef4444",
+        borderVisible: true,
+        wickVisible: true,
+    });
+
+    volumeSeries = chart.addHistogramSeries({
+        priceFormat: { type: "volume" },
+        color: "#4c78ff",
+        priceScaleId: "",
+        scaleMargins: { top: 0.8, bottom: 0 },
+    });
+}
+
+/* ----------------------------------------------------
+   FETCH DATA
+---------------------------------------------------- */
+async function fetchData(symbol) {
+    try {
+        const response = await fetch(WORKER_URL + symbol);
+        const data = await response.json();
+
+        if (!Array.isArray(data)) return { ohlc: [], volume: [] };
+
+        const ohlc = data.map(row => ({
+            time: row.time,
+            open: row.open,
+            high: row.high,
+            low: row.low,
+            close: row.close
+        }));
+
+        const volume = data.map(row => ({
+            time: row.time,
+            value: row.volume ?? 0,
+            color: row.close >= row.open ? "#22c55e" : "#ef4444"
+        }));
+
+        return { ohlc, volume };
+    } catch (e) {
+        showError("Failed to fetch data");
+        return { ohlc: [], volume: [] };
+    }
+}
+
+/* ----------------------------------------------------
+   UI HELPERS
+---------------------------------------------------- */
+function showSpinner() { spinner.classList.remove("hidden"); }
+function hideSpinner() { spinner.classList.add("hidden"); }
+
+function showError(msg) {
+    errorBox.innerText = msg;
+    errorBox.style.display = "block";
+}
+function hideError() {
+    errorBox.style.display = "none";
+}
+
+/* ----------------------------------------------------
+   LOAD CHART
+---------------------------------------------------- */
+async function loadChart(symbol) {
+    createChart();
+    showSpinner();
+    hideError();
+
+    symbolTitle.innerText = symbol;
+
+    const { ohlc, volume } = await fetchData(symbol);
+
+    hideSpinner();
+
+    if (ohlc.length === 0) {
+        showError("No chart data returned");
+        return;
+    }
+
+    candleSeries.setData(ohlc);
+    volumeSeries.setData(volume);
+
+    chart.timeScale().fitContent();
+}
+
+/* ----------------------------------------------------
+   WATCHLIST CLICK
+---------------------------------------------------- */
+watchlistItems.forEach(item => {
+    item.addEventListener("click", () => {
+        const symbol = item.dataset.symbol;
+        loadChart(symbol);
+    });
+});
+
+/* ----------------------------------------------------
+   ADD STOCK DYNAMICALLY
+---------------------------------------------------- */
+let customWatchlist = JSON.parse(localStorage.getItem("watchlist")) || [];
+
+// Load stored items
+customWatchlist.forEach(symbol => addWatchItem(symbol, false));
+
+function addWatchItem(symbol, save = true) {
+    symbol = symbol.toUpperCase().trim();
+    if (!symbol) return;
+
+    if (Array.from(watchlistUL.children).some(li => li.dataset.symbol === symbol)) {
+        alert("Symbol already exists");
+        return;
+    }
+
+    const li = document.createElement("li");
+    li.textContent = symbol.replace(".NS", "");
+    li.dataset.symbol = symbol;
+    watchlistUL.appendChild(li);
+
+    li.addEventListener("click", () => loadChart(symbol));
+
+    if (save) {
+        customWatchlist.push(symbol);
+        localStorage.setItem("watchlist", JSON.stringify(customWatchlist));
+    }
+}
+
+addBtn.addEventListener("click", () => {
+    let symbol = addInput.value.trim();
+    if (!symbol) return;
+
+    if (!symbol.includes(".")) symbol += ".NS";
+    addWatchItem(symbol);
+    addInput.value = "";
+});
+
+addInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") addBtn.click();
+});
+
+/* ----------------------------------------------------
+   LOAD DEFAULT CHART
+---------------------------------------------------- */
+loadChart("RELIANCE.NS");
+
+</script>
 
 </body>
 </html>
