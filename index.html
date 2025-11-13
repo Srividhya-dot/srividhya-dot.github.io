@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Chart + Watchlist (Compact Dashboard)</title>
+<title>Hybrid Chart (AlphaVantage + Yahoo) — Watchlist + Indicators</title>
 
-<!-- ✅ Correct Lightweight Charts version -->
-<script src="https://unpkg.com/lightweight-charts@4.0.0/dist/lightweight-charts.standalone.production.js"></script>
-
+<!-- Lightweight Charts (explicit version that supports addCandlestickSeries) -->
+<script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
 
 <style>
 :root{
@@ -17,114 +16,76 @@
 *{box-sizing:border-box;font-family:Inter, Arial, sans-serif}
 html,body{height:100%;margin:0;background:var(--bg);color:#e6eef8}
 .app{display:flex;height:100vh;overflow:hidden}
-
-/* Left watchlist */
-.side{
-  width:300px;
-  background:#071a27;
-  padding:16px;
-  border-right:1px solid rgba(255,255,255,0.05);
-  overflow:auto;
-}
-.side h2{margin:0 0 12px;color:var(--accent);font-size:26px}
-.search{width:100%;padding:10px;border-radius:8px;border:none;background:#0b2230;color:#dce7ff;margin-bottom:12px}
-
-.watchlist{list-style:none;margin:0;padding:0}
-.watchlist li{
-  background:#122b36;margin:8px 0;padding:12px;border-radius:8px;cursor:pointer;
-  color:white;font-weight:600;text-transform:uppercase
-}
+.side{width:320px;background:linear-gradient(180deg,#071a27 0,#071a27 100%);padding:18px;border-right:1px solid rgba(255,255,255,0.03);overflow:auto}
+.side h2{margin:0 0 12px;color:var(--accent);font-size:30px}
+.search{width:100%;background:#071826;color:#cfe6ff;padding:10px;margin-bottom:12px;border-radius:8px;border:none}
+.watchlist{list-style:none;padding:0;margin:0}
+.watchlist li{background:#122b36;margin:10px 0;padding:16px;border-radius:8px;cursor:pointer;text-transform:uppercase;letter-spacing:0.6px;color:#e6eef8;font-weight:600}
 .watchlist li.active{background:#244f63}
+.add-row{display:flex;gap:8px;margin-top:12px}
+.add-row input{flex:1;background:#071026;padding:10px;color:#cfe6ff;border-radius:8px;border:none}
+.add-row button{background:var(--accent);color:#042330;padding:10px 14px;cursor:pointer;border-radius:8px;border:none}
 
-.add-row{display:flex;gap:8px;margin-top:10px}
-.add-row input{flex:1;background:#071026;padding:10px;border-radius:8px;border:none;color:#cfe6ff}
-.add-row button{padding:10px 14px;background:var(--accent);border:none;border-radius:8px;color:#01222b;cursor:pointer}
+.panel{margin-top:20px;background:rgba(255,255,255,0.02);padding:12px;border-radius:8px}
+.panel h3{margin:0 0 8px;font-size:16px}
+.preset-row{display:flex;gap:8px;align-items:center}
+.preset-list{margin-top:8px;font-size:13px;color:var(--muted)}
 
-/* Presets */
-.panel{margin-top:20px;padding:12px;background:#0b2230;border-radius:8px}
-.panel h3{margin:0 0 8px}
-.preset-row{display:flex;gap:8px}
-.preset-list{font-size:14px;color:#cfe6ff;margin-top:10px}
-
-/* Main chart area */
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
-.toolbar{
-  background:#061821;
-  border-bottom:1px solid rgba(255,255,255,0.05);
-  height:56px;
-  display:flex;align-items:center;
-  padding:0 18px;gap:16px
-}
-.title{font-size:20px;font-weight:700}
-.tf-group{display:flex;gap:6px}
-.tf-btn{
-  padding:6px 10px;border-radius:6px;border:none;
-  background:#0a2738;color:#cfe6ff;cursor:pointer
-}
+.toolbar{height:64px;background:linear-gradient(90deg,rgba(0,0,0,0.3),rgba(0,0,0,0.05));display:flex;align-items:center;padding:0 18px;border-bottom:1px solid rgba(255,255,255,0.03);gap:16px}
+.title{font-weight:700;font-size:20px}
+.tf-group{display:flex;gap:8px;margin-left:8px}
+.tf-btn{background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 12px;border:none;color:#cfe6ff;cursor:pointer}
 .tf-btn.active{background:var(--accent);color:#01222b}
+.ribbon{margin-left:auto;display:flex;gap:14px;align-items:center}
 
-/* top-right toggles */
-.toggles{margin-left:auto;display:flex;gap:12px}
-.toggle{display:flex;align-items:center;gap:6px;font-size:14px;color:#cfe6ff}
-
-/* chart container */
+/* chart container - wider central area with indicators ribbon on top */
 .chart-wrap{flex:1;display:flex;min-height:0;position:relative}
-.chart-box{flex:1;background:#0f1724;padding:10px;display:flex;flex-direction:column}
-#chart{flex:1}
+.chart-box{flex:1;background:var(--surface);padding:12px;display:flex;flex-direction:column;min-height:0}
+#chart{flex:1;min-height:0;border-radius:6px}
 
-/* Right indicator panel → converted into top ribbon */
-.right{
-  position:absolute;
-  top:0;left:50%;transform:translateX(-50%);
-  display:flex;gap:16px;
-  background:#061821c5;
-  padding:8px 12px;border-radius:8px;
-  z-index:10;
-}
-.right label{font-size:13px;color:#cfe6ff}
+/* top-right toggles shown as ribbon */
+.controls-ribbon{position:absolute;right:18px;top:12px;background:rgba(2,6,23,0.6);padding:8px;border-radius:8px;display:flex;gap:12px;align-items:center;border:1px solid rgba(255,255,255,0.03)}
+.controls-ribbon label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
 
-.spinner, .error{
-  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  padding:10px 14px;border-radius:8px;font-weight:700
-}
-.spinner{background:#0008;color:white}
+/* indicator panel moved to ribbon area (under toolbar) - keep small forms */
+.ribbon-form{display:flex;gap:10px;align-items:center;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.02)}
+.ribbon-form input{width:58px;padding:6px;border-radius:6px;border:none;background:#071827;color:#cfe6ff}
+
+/* small status */
+.spinner, .error{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.7);padding:12px 18px;border-radius:10px;font-weight:700}
 .error{background:#2b0f0f;color:#ffd2d2;display:none}
 .hidden{display:none}
+@media (max-width:1000px){.side{display:none}}
 </style>
 </head>
-
 <body>
-<div class="app">
 
-  <!-- LEFT WATCHLIST -->
+<div class="app">
   <aside class="side">
     <h2>Watchlist</h2>
-    <input id="searchInput" class="search" placeholder="Search symbol..."/>
-
+    <input id="searchInput" class="search" placeholder="Search symbol..." />
     <ul id="watchlist" class="watchlist"></ul>
 
     <div class="add-row">
-      <input id="addSymbol" placeholder="Add symbol, e.g. RELIANCE.NS"/>
+      <input id="addSymbol" placeholder="Add symbol, e.g. RELIANCE.NS" />
       <button id="addBtn">Add</button>
     </div>
 
     <div class="panel">
       <h3>Presets</h3>
       <div class="preset-row">
-        <input id="presetName" placeholder="Preset name"/>
-        <button id="savePreset" style="background:var(--accent);color:#01222b;border-radius:6px;padding:8px 12px">Save</button>
+        <input id="presetName" placeholder="Preset name" />
+        <button id="savePreset" style="background:var(--accent);padding:8px 10px;border-radius:8px;color:#01222b;border:none">Save</button>
       </div>
-      <button id="exportPresets" style="margin-top:10px;background:none;border:1px solid #334;color:#88a;padding:6px 10px;border-radius:6px">Export</button>
-
-      <div id="presetList" class="preset-list">Saved presets:</div>
+      <div style="margin-top:8px"><button id="exportPresets" style="background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.03);padding:8px;border-radius:8px">Export</button></div>
+      <div class="preset-list" id="presetList">Saved presets:</div>
     </div>
   </aside>
 
-  <!-- MAIN -->
   <main class="main">
     <div class="toolbar">
-      <div id="symbolTitle" class="title">Loading...</div>
-
+      <div class="title" id="symbolTitle">Loading...</div>
       <div class="tf-group" id="timeframes">
         <button class="tf-btn" data-tf="1m">1m</button>
         <button class="tf-btn" data-tf="5m">5m</button>
@@ -136,532 +97,584 @@ html,body{height:100%;margin:0;background:var(--bg);color:#e6eef8}
         <button class="tf-btn" data-tf="1M">1M</button>
       </div>
 
-      <div class="toggles">
-        <div class="toggle"><input type="checkbox" id="toggleReliable" checked> Reliable</div>
-        <div class="toggle"><input type="checkbox" id="toggleLux" checked> Lux</div>
-        <div class="toggle"><input type="checkbox" id="toggleIsland" checked> Island</div>
+      <div class="ribbon" id="topRibbon">
+        <div class="ribbon-form">
+          <div style="color:var(--muted);font-size:12px">Pivot L</div>
+          <input id="pivotLeft" type="number" min="1" value="15" />
+          <div style="color:var(--muted);font-size:12px">R</div>
+          <input id="pivotRight" type="number" min="1" value="15" />
+          <div style="color:var(--muted);font-size:12px">Lux len</div>
+          <input id="luxLen1" type="number" min="2" value="50" />
+          <div style="color:var(--muted);font-size:12px">mlt</div>
+          <input id="luxMlt1" type="number" step="0.1" value="2" />
+          <div style="color:var(--muted);font-size:12px">Trend</div>
+          <input id="islandTrend" type="number" min="2" value="10" />
+          <label style="margin-left:6px"><input id="islandVolFilter" type="checkbox" checked />Vol</label>
+          <button id="applyIndicators" style="background:var(--accent);color:#01222b;padding:8px;border-radius:8px;border:none;margin-left:6px">Apply</button>
+        </div>
       </div>
     </div>
+
     <div class="chart-wrap">
       <div class="chart-box">
-
-        <!-- Top ribbon indicator controls -->
-        <div class="right" id="indicatorRibbon">
-          <!-- Reliable -->
-          <label>
-            <input type="number" id="pivotLeft" value="15" min="1" style="width:55px;border-radius:4px;background:#0b2230;border:none;color:#dce7ff;padding:4px 6px">
-            L
-          </label>
-          <label>
-            <input type="number" id="pivotRight" value="15" min="1" style="width:55px;border-radius:4px;background:#0b2230;border:none;color:#dce7ff;padding:4px 6px">
-            R
-          </label>
-
-          <!-- LuxAlgo -->
-          <label>
-            <input type="number" id="luxLen1" value="50" min="2" style="width:55px;border-radius:4px;background:#0b2230;border:none;color:#dce7ff;padding:4px 6px">
-            len
-          </label>
-          <label>
-            <input type="number" id="luxMlt1" value="2" step="0.1" min="0.1" style="width:55px;border-radius:4px;background:#0b2230;border:none;color:#dce7ff;padding:4px 6px">
-            mlt
-          </label>
-
-          <!-- Island -->
-          <label>
-            <input type="number" id="islandTrend" value="10" min="2" style="width:55px;border-radius:4px;background:#0b2230;border:none;color:#dce7ff;padding:4px 6px">
-            Trend
-          </label>
-          <label>
-            <input type="checkbox" id="islandVolFilter" checked> Vol
-          </label>
-
-          <!-- Volume -->
-          <label>
-            <input type="checkbox" id="showVolume" checked> VolBars
-          </label>
-
-          <button id="applyIndicators" style="padding:6px 12px;border:none;border-radius:6px;background:var(--accent);color:#01222b;font-weight:600">
-            Apply
-          </button>
-        </div>
-
         <div id="chart"></div>
-        <div id="spinner" class="spinner hidden">Loading...</div>
+        <div id="spinner" class="spinner">Loading...</div>
         <div id="error" class="error"></div>
       </div>
     </div>
   </main>
 </div>
+
 <script>
-
-/* ----------------------------------------------------
-   CONFIG
----------------------------------------------------- */
-const WORKER_URL = "https://black-tree-2e32.sriviadithi.workers.dev/?symbol=";
+/* ---------------- CONFIG ---------------- */
+const ALPHA_KEY = "C99VSVXV4LQO45SE"; // your AlphaVantage key (from your message)
+const ALPHA_URL = "https://www.alphavantage.co/query";
 const DEFAULT_SYMBOLS = ["RELIANCE.NS","TCS.NS","INFY.NS","HDFCBANK.NS","ICICIBANK.NS"];
+const YAHOO_CHART_URL = (sym, range, interval) => `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=${interval}`;
 
-/* DOM */
-const watchlistEl = document.getElementById("watchlist");
-const symbolTitle = document.getElementById("symbolTitle");
-const chartDiv = document.getElementById("chart");
-const spinner = document.getElementById("spinner");
-const errorBox = document.getElementById("error");
+/* DOM refs */
+const watchlistEl = document.getElementById('watchlist');
+const symbolTitle = document.getElementById('symbolTitle');
+const chartDiv = document.getElementById('chart');
+const spinner = document.getElementById('spinner');
+const errorBox = document.getElementById('error');
 
-const addSymbolInput = document.getElementById("addSymbol");
-const addBtn = document.getElementById("addBtn");
-const searchInput = document.getElementById("searchInput");
+const addSymbolInput = document.getElementById('addSymbol');
+const addBtn = document.getElementById('addBtn');
+const searchInput = document.getElementById('searchInput');
 
-const showVolume = document.getElementById("showVolume");
-const toggleReliable = document.getElementById("toggleReliable");
-const toggleLux = document.getElementById("toggleLux");
-const toggleIsland = document.getElementById("toggleIsland");
+const tfButtons = Array.from(document.querySelectorAll('.tf-btn'));
+const pivotLeft = document.getElementById('pivotLeft');
+const pivotRight = document.getElementById('pivotRight');
+const luxLen1 = document.getElementById('luxLen1');
+const luxMlt1 = document.getElementById('luxMlt1');
+const islandTrend = document.getElementById('islandTrend');
+const islandVolFilter = document.getElementById('islandVolFilter');
+const applyIndicatorsBtn = document.getElementById('applyIndicators');
 
-const pivotLeft = document.getElementById("pivotLeft");
-const pivotRight = document.getElementById("pivotRight");
+const presetName = document.getElementById('presetName');
+const savePresetBtn = document.getElementById('savePreset');
+const presetList = document.getElementById('presetList');
+const exportPresetsBtn = document.getElementById('exportPresets');
 
-const luxLen1 = document.getElementById("luxLen1");
-const luxMlt1 = document.getElementById("luxMlt1");
-
-const islandTrend = document.getElementById("islandTrend");
-const islandVolFilter = document.getElementById("islandVolFilter");
-
-const applyIndicatorsBtn = document.getElementById("applyIndicators");
-const pollIntervalInput = document.getElementById("pollInterval");
-
-const presetName = document.getElementById("presetName");
-const savePresetBtn = document.getElementById("savePreset");
-const presetList = document.getElementById("presetList");
-const exportPresetsBtn = document.getElementById("exportPresets");
-
-/* STATE */
-let watchSymbols = JSON.parse(localStorage.getItem("watchSymbols")) || DEFAULT_SYMBOLS.slice();
-let presets = JSON.parse(localStorage.getItem("chartPresets")) || {};
-let chart = null;
-let candleSeries = null;
-let volumeSeries = null;
-let srLines = [];
-let activeTF = "1D";
+/* state */
+let watchSymbols = JSON.parse(localStorage.getItem('watchSymbols')) || DEFAULT_SYMBOLS.slice();
+let presets = JSON.parse(localStorage.getItem('chartPresets')) || {};
 let lastSymbol = null;
+let activeTF = '1D';
+let chart = null, candleSeries = null, volumeSeries = null;
+let srPriceLines = [];
 let pollTimer = null;
 
-/* ----------------------------------------------------
-   CREATE CHART
----------------------------------------------------- */
-function createChart() {
-  if (chart) return;
-
+/* create chart */
+function createChart(){
+  if(chart) return;
   chart = LightweightCharts.createChart(chartDiv, {
-    layout: {
-      backgroundColor: "#0f1724",
-      textColor: "#d1d4dc"
-    },
-    grid: {
-      vertLines: { color: "#253248" },
-      horzLines: { color: "#253248" }
-    },
-    rightPriceScale: { borderColor: "#485c7b" },
-    timeScale: {
-      borderColor: "#485c7b",
-      timeVisible: true,
-      secondsVisible: false
-    }
+    width: chartDiv.clientWidth,
+    height: chartDiv.clientHeight,
+    layout: { backgroundColor: "#0f1724", textColor: "#d1d4dc" },
+    grid: { vertLines: { color: "#253248" }, horzLines: { color: "#253248" } },
+    timeScale: { borderColor: "#485c7b", timeVisible: true }
   });
-
   candleSeries = chart.addCandlestickSeries({
-    upColor: "#22c55e",
-    downColor: "#ef4444",
-    wickVisible: true,
-    borderVisible: true
+    upColor: "#22c55e", downColor: "#ef4444", borderVisible: true, wickVisible: true
   });
-
   volumeSeries = chart.addHistogramSeries({
-    priceFormat: { type: "volume" },
-    priceScaleId: "",
-    scaleMargins: { top: 0.8, bottom: 0 }
+    priceFormat: { type: "volume" }, priceScaleId: "", scaleMargins: { top: 0.8, bottom: 0 }
   });
 }
 
-/* ------------------- UI HELPERS ------------------- */
-function showSpinner() { spinner.classList.remove("hidden"); }
-function hideSpinner() { spinner.classList.add("hidden"); }
-function showError(msg) { errorBox.textContent = msg; errorBox.style.display = "block"; }
-function hideError() { errorBox.style.display = "none"; }
+/* UI helpers */
+function showSpinner(){ spinner.classList.remove('hidden'); spinner.style.display='block'; }
+function hideSpinner(){ spinner.classList.add('hidden'); spinner.style.display='none'; }
+function showError(msg){ errorBox.style.display='block'; errorBox.textContent = msg; }
+function hideError(){ errorBox.style.display='none'; }
 
-/* ------------------- WATCHLIST -------------------- */
-function renderWatchlist() {
-  watchlistEl.innerHTML = "";
-  watchSymbols.forEach(sym => {
-    const li = document.createElement("li");
-    li.textContent = sym;
-    li.dataset.symbol = sym;
-    li.onclick = () => loadChart(sym);
+/* render watchlist */
+function renderWatchlist(){
+  watchlistEl.innerHTML = '';
+  for(const s of watchSymbols){
+    const li = document.createElement('li');
+    li.textContent = s;
+    li.dataset.symbol = s;
+    li.addEventListener('click', ()=> loadChart(s));
     watchlistEl.appendChild(li);
+  }
+  attachActive();
+}
+function attachActive(){
+  Array.from(watchlistEl.children).forEach(li=>{
+    li.classList.toggle('active', li.dataset.symbol === lastSymbol);
   });
 }
-renderWatchlist();
 
-addBtn.onclick = () => {
-  const v = addSymbolInput.value.trim().toUpperCase();
-  if (!v) return;
-  if (!watchSymbols.includes(v)) {
-    watchSymbols.unshift(v);
-    localStorage.setItem("watchSymbols", JSON.stringify(watchSymbols));
-    renderWatchlist();
-  }
-  addSymbolInput.value = "";
-  loadChart(v);
-};
+/* add symbol */
+addBtn.addEventListener('click', ()=>{
+  const v = (addSymbolInput.value || '').trim();
+  if(!v) return;
+  const up = v.toUpperCase();
+  if(!watchSymbols.includes(up)){ watchSymbols.unshift(up); localStorage.setItem('watchSymbols', JSON.stringify(watchSymbols)); renderWatchlist(); }
+  addSymbolInput.value = '';
+  loadChart(up);
+});
 
-searchInput.oninput = e => {
-  const q = e.target.value.toLowerCase();
-  Array.from(watchlistEl.children).forEach(li => {
-    li.style.display = li.textContent.toLowerCase().includes(q) ? "" : "none";
+/* search filter */
+searchInput.addEventListener('input', e=>{
+  const q = e.target.value.trim().toLowerCase();
+  Array.from(watchlistEl.children).forEach(li=>{
+    li.style.display = q && !li.textContent.toLowerCase().includes(q) ? 'none' : '';
   });
-};
+});
 
-/* ------------------- FETCH OHLC ------------------- */
-async function fetchOHLC(symbol, range = "1y", gran = "1d") {
-  const url = WORKER_URL + encodeURIComponent(symbol) +
-              `&range=${range}&granularity=${gran}`;
+/* timeframes */
+tfButtons.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    tfButtons.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    activeTF = btn.dataset.tf;
+    if(lastSymbol) loadChart(lastSymbol);
+  });
+});
 
-  try {
-    const r = await fetch(url);
-    const json = await r.json();
-
-    // If AWS worker returns array directly
-    if (Array.isArray(json)) return json.map(normalizeBar);
-
-    // If wrapped {data:[...]}
-    if (json.data && Array.isArray(json.data))
-      return json.data.map(normalizeBar);
-
-    // Yahoo-like parsing
-    if (json.chart?.result?.[0]) {
-      const r = json.chart.result[0];
-      const t = r.timestamp;
-      const q = r.indicators.quote[0];
-      const out = [];
-
-      for (let i = 0; i < t.length; i++) {
-        if (q.open[i] == null) continue;
-        out.push({
-          time: t[i],
-          open: q.open[i],
-          high: q.high[i],
-          low: q.low[i],
-          close: q.close[i],
-          volume: q.volume[i]
-        });
-      }
-      return out.map(normalizeBar);
-    }
-
-    return [];
-  } catch (e) {
-    console.error("Fetch error", e);
-    return [];
+/* presets */
+function renderPresets(){
+  presetList.innerHTML = 'Saved presets:';
+  const keys = Object.keys(presets);
+  if(!keys.length){ presetList.innerHTML += '<div style="color:var(--muted);margin-top:6px">no saved presets</div>'; return; }
+  for(const k of keys){
+    const div = document.createElement('div');
+    div.style.marginTop='6px';
+    div.innerHTML = `<strong style="margin-right:8px">${k}</strong>
+      <button data-name="${k}" class="loadPreset" style="margin-right:6px">Load</button>
+      <button data-name="${k}" class="delPreset" style="background:transparent;color:var(--muted)">Delete</button>`;
+    presetList.appendChild(div);
   }
+  Array.from(document.getElementsByClassName('loadPreset')).forEach(b=> b.addEventListener('click', ()=> applyPreset(presets[b.dataset.name])));
+  Array.from(document.getElementsByClassName('delPreset')).forEach(b=> b.addEventListener('click', ()=> { delete presets[b.dataset.name]; localStorage.setItem('chartPresets', JSON.stringify(presets)); renderPresets(); }));
 }
-
-function normalizeBar(b) {
-  let t = b.time || b.timestamp || b[0];
-  if (!t) return null;
-  if (t > 1e12) t = Math.floor(t / 1000);
-  return {
-    time: t,
-    open: +b.open,
-    high: +b.high,
-    low: +b.low,
-    close: +b.close,
-    volume: +b.volume || 0
+savePresetBtn.addEventListener('click', ()=>{
+  const name = (presetName.value||'').trim();
+  if(!name){ alert('Give preset a name'); return; }
+  presets[name] = {
+    pivotLeft: pivotLeft.valueAsNumber, pivotRight: pivotRight.valueAsNumber,
+    luxLen1: luxLen1.valueAsNumber, luxMlt1: luxMlt1.valueAsNumber,
+    islandTrend: islandTrend.valueAsNumber, islandVol: islandVolFilter.checked
   };
+  localStorage.setItem('chartPresets', JSON.stringify(presets));
+  presetName.value='';
+  renderPresets();
+});
+exportPresetsBtn.addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(presets, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='presets.json'; a.click(); URL.revokeObjectURL(a.href);
+});
+function applyPreset(p){
+  pivotLeft.value = p.pivotLeft; pivotRight.value = p.pivotRight;
+  luxLen1.value = p.luxLen1; luxMlt1.value = p.luxMlt1;
+  islandTrend.value = p.islandTrend; islandVolFilter.checked = !!p.islandVol;
+  loadChart(lastSymbol);
 }
-/* -------------------------------------------------------
-   TIMEFRAME CONVERSION
-------------------------------------------------------- */
-const TF_SEC = {
-  "1m": 60, "5m": 300, "15m": 900, "30m": 1800,
-  "60m": 3600, "1D": 86400, "1W": 604800, "1M": 2592000
-};
 
-function convertToTF(bars, sourceSec, targetTF) {
-  const targetSec = TF_SEC[targetTF] || 86400;
+/* ----------------- Data fetchers -----------------
+   Primary: AlphaVantage for intraday.
+   Secondary: Yahoo Finance for intraday/daily when AV fails.
+   We handle formats and normalize to {time,open,high,low,close,volume} with epoch seconds.
+*/
 
-  // If equal TF → return same
-  if (sourceSec === targetSec) return bars.slice();
+/* helper to pause (for rate limit safety) */
+function wait(ms){ return new Promise(resolve=>setTimeout(resolve, ms)); }
 
-  // If target is larger → aggregate
-  if (targetSec > sourceSec) {
-    const groups = {};
-    bars.forEach(b => {
-      const key = Math.floor(b.time / targetSec);
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(b);
+/* AlphaVantage intraday fetch */
+async function fetchAlphaIntraday(symbol, interval='15min', outputsize='compact'){
+  try{
+    const params = new URLSearchParams({
+      function: 'TIME_SERIES_INTRADAY',
+      symbol: symbol.replace('.NS',''), // AlphaVantage may prefer base symbol; we try without suffix
+      interval,
+      outputsize,
+      apikey: ALPHA_KEY
     });
-
-    return Object.values(groups).map(grp => {
-      return {
-        time: grp[0].time,
-        open: grp[0].open,
-        high: Math.max(...grp.map(x => x.high)),
-        low: Math.min(...grp.map(x => x.low)),
-        close: grp[grp.length - 1].close,
-        volume: grp.reduce((s, x) => s + x.volume, 0)
-      };
-    });
+    const url = `${ALPHA_URL}?${params.toString()}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('Alpha HTTP '+res.status);
+    const json = await res.json();
+    // Check rate limit
+    if(json['Note'] || json['Error Message']) {
+      console.warn('AlphaVantage rate/err', json);
+      return {error: json['Note'] || json['Error Message'] || 'Alpha error'};
+    }
+    const key = Object.keys(json).find(k=>k.includes('Time Series'));
+    const series = json[key];
+    if(!series) return {error:'no_series'};
+    const out = Object.entries(series).map(([ts, obj])=>{
+      // ts format: '2025-11-12 15:30:00' (assume local exchange)
+      const t = Math.floor(new Date(ts + ' UTC').getTime()/1000) || Math.floor(new Date(ts).getTime()/1000);
+      return { time: t, open: +obj['1. open'], high: +obj['2. high'], low: +obj['3. low'], close: +obj['4. close'], volume: +obj['5. volume'] };
+    }).sort((a,b)=>a.time - b.time);
+    return {data: out};
+  }catch(err){
+    console.error('fetchAlphaIntraday err', err);
+    return {error: err.message || 'alpha_error'};
   }
+}
 
-  // If target is smaller → synthetic intraday (approx)
+/* AlphaVantage daily fetch (TIME_SERIES_DAILY) */
+async function fetchAlphaDaily(symbol){
+  try{
+    const params = new URLSearchParams({ function:'TIME_SERIES_DAILY_ADJUSTED', symbol: symbol.replace('.NS',''), outputsize:'compact', apikey: ALPHA_KEY });
+    const res = await fetch(`${ALPHA_URL}?${params.toString()}`);
+    if(!res.ok) throw new Error('Alpha HTTP '+res.status);
+    const json = await res.json();
+    if(json['Note'] || json['Error Message']) { console.warn('AlphaVantage note', json); return {error: json['Note'] || json['Error Message']}; }
+    const series = json['Time Series (Daily)'] || json['Time Series (Daily)'];
+    if(!series) return {error:'no_series'};
+    const out = Object.entries(series).map(([d,obj])=>{
+      const t = Math.floor(new Date(d+'T00:00:00').getTime()/1000);
+      return { time:t, open:+obj['1. open'], high:+obj['2. high'], low:+obj['3. low'], close:+obj['4. close'], volume:+obj['6. volume']||+obj['5. volume']||0 };
+    }).sort((a,b)=>a.time-b.time);
+    return {data: out};
+  }catch(err){
+    console.error('fetchAlphaDaily err', err);
+    return {error: err.message || 'alpha_error'};
+  }
+}
+
+/* Yahoo fetch (chart API), can do intraday or daily */
+async function fetchYahoo(symbol, range='1y', interval='1d'){
+  try{
+    const url = YAHOO_CHART_URL(symbol, range, interval);
+    const res = await fetch(url, {cache:'no-store'});
+    if(!res.ok) throw new Error('Yahoo HTTP '+res.status);
+    const json = await res.json();
+    if(!json.chart || !json.chart.result || !json.chart.result[0]) return {error:'no_chart'};
+    const r = json.chart.result[0];
+    const timestamps = r.timestamp || (r.indicators && r.indicators.quote && r.indicators.quote[0] && r.indicators.quote[0].timestamp) || null;
+    const quote = r.indicators && r.indicators.quote && r.indicators.quote[0];
+    if(Array.isArray(timestamps) && quote){
+      const out = [];
+      for(let i=0;i<timestamps.length;i++){
+        const t = timestamps[i];
+        const o = quote.open?.[i], h = quote.high?.[i], l = quote.low?.[i], c = quote.close?.[i], v = quote.volume?.[i] || 0;
+        if(o==null||h==null||l==null||c==null) continue;
+        out.push({ time: t, open:+o, high:+h, low:+l, close:+c, volume:+v });
+      }
+      return {data: out};
+    }
+    // fallback parsing if adjclose etc present
+    return {error:'no_quote'};
+  }catch(err){
+    console.error('fetchYahoo err', err);
+    return {error: err.message || 'yahoo_error'};
+  }
+}
+
+/* Universal fetch function (option C fallback logic)
+   - For intraday intervals use AlphaVantage first, fallback to Yahoo (if available)
+   - For daily/week/month use Yahoo first, fallback to AlphaDaily
+*/
+async function fetchOHLC(symbol, desiredTF='1D'){
+  // Map TF to intervals and ranges
+  const intradayMap = { '1m':'1min', '5m':'5min', '15m':'15min', '30m':'30min', '60m':'60min' };
+  try{
+    if(intradayMap[desiredTF]) {
+      const avInterval = intradayMap[desiredTF];
+      // Alpha first
+      const av = await fetchAlphaIntraday(symbol, avInterval, 'compact');
+      if(av.data && av.data.length>0) return av.data;
+      // If alpha returns error or empty, try Yahoo intraday interval (Yahoo supports e.g., '15m' as interval)
+      const yahooInterval = desiredTF.replace('m','m');
+      // Yahoo range can be '5d' for intraday
+      const yf = await fetchYahoo(symbol, '5d', yahooInterval);
+      if(yf.data && yf.data.length>0) return yf.data;
+      // If both fail, try alpha daily -> synthesize smaller TF
+      const ad = await fetchAlphaDaily(symbol);
+      if(ad.data && ad.data.length>0) return ad.data;
+      return [];
+    } else {
+      // daily/week/month -> Yahoo primary
+      if(desiredTF === '1D') {
+        const yf = await fetchYahoo(symbol, '1y', '1d');
+        if(yf.data && yf.data.length>0) return yf.data;
+        const ad = await fetchAlphaDaily(symbol);
+        if(ad.data && ad.data.length>0) return ad.data;
+        return [];
+      }
+      if(desiredTF === '1W') {
+        // ask Yahoo for 5y with 1wk or request 1y with 1wk
+        const yf = await fetchYahoo(symbol, '5y', '1wk');
+        if(yf.data && yf.data.length>0) return yf.data;
+        const ad = await fetchAlphaDaily(symbol);
+        if(ad.data && ad.data.length>0) return ad.data;
+        return [];
+      }
+      if(desiredTF === '1M') {
+        const yf = await fetchYahoo(symbol, '10y', '1mo');
+        if(yf.data && yf.data.length>0) return yf.data;
+        const ad = await fetchAlphaDaily(symbol);
+        if(ad.data && ad.data.length>0) return ad.data;
+        return [];
+      }
+      // default fallback
+      const yf = await fetchYahoo(symbol, '1y', '1d');
+      return yf.data || [];
+    }
+  }catch(err){
+    console.error('fetchOHLC err', err);
+    return [];
+  }
+}
+
+/* normalize / ensure ascending and epoch seconds */
+function ensureAscending(arr){
+  if(!Array.isArray(arr)) return [];
+  const a = arr.filter(Boolean).map(x=>({
+    time: Math.floor(Number(x.time)),
+    open: Number(x.open), high:Number(x.high), low:Number(x.low), close:Number(x.close), volume: Number(x.volume||0)
+  }));
+  a.sort((p,q)=>p.time - q.time);
+  return a;
+}
+
+/* convert daily to intraday synthetic when necessary (approximate) */
+function convertDailyToTF(sourceBars, targetTF){
+  const tfSeconds = {'1m':60,'5m':300,'15m':900,'30m':1800,'60m':3600,'1D':86400,'1W':86400*7,'1M':86400*30};
+  const targetSec = tfSeconds[targetTF] || 86400;
+  if(targetSec >= 86400) {
+    // aggregate daily -> weekly/monthly handled upstream
+    return sourceBars;
+  }
+  // split each day into parts
   const out = [];
-  for (let d of bars) {
-    const parts = Math.floor(86400 / targetSec);
-    for (let i = 0; i < parts; i++) {
-      const t = d.time + i * targetSec;
-      const o = d.open + (d.close - d.open) * (i / parts);
-      const c = d.open + (d.close - d.open) * ((i + 1) / parts);
-      out.push({
-        time: t,
-        open: o,
-        high: Math.max(o, c, d.high),
-        low: Math.min(o, c, d.low),
-        close: c,
-        volume: Math.round(d.volume / parts)
-      });
+  for(const day of sourceBars){
+    const parts = Math.max(1, Math.floor(86400/targetSec));
+    for(let p=0;p<parts;p++){
+      const t = day.time + p*targetSec;
+      const o = day.open + (day.close - day.open) * (p/parts);
+      const c = day.open + (day.close - day.open) * ((p+1)/parts);
+      const h = Math.max(o,c, day.high);
+      const l = Math.min(o,c, day.low);
+      const v = Math.round(day.volume/parts);
+      out.push({time:t,open:o,high:h,low:l,close:c,volume:v});
     }
   }
   return out;
 }
 
-/* -------------------------------------------------------
-   INDICATORS
-------------------------------------------------------- */
-function computeReliableSR(bars, L = 15, R = 15) {
+/* ---------------- Indicators (simplified) ---------------- */
+/* Reliable pivot S/R (horizontal): return up to 50 levels */
+function computeReliableSR(bars, left=15, right=15) {
   const levels = [];
-
-  for (let i = L; i < bars.length - R; i++) {
-    const b = bars[i];
-
-    const leftSlice = bars.slice(i - L, i);
-    const rightSlice = bars.slice(i + 1, i + 1 + R);
-
-    const isPH = leftSlice.every(x => b.high > x.high)
-              && rightSlice.every(x => b.high > x.high);
-
-    const isPL = leftSlice.every(x => b.low < x.low)
-              && rightSlice.every(x => b.low < x.low);
-
-    if (isPH) levels.push({ price: b.high, label: "PH", color: "#ef4444", width: 2 });
-    if (isPL) levels.push({ price: b.low, label: "PL", color: "#22c55e", width: 2 });
+  for(let i = left; i < bars.length - right; i++){
+    const candidateHigh = bars[i].high;
+    const candidateLow = bars[i].low;
+    let isPH = true, isPL = true;
+    for(let j = i - left; j <= i + right; j++){
+      if(j === i) continue;
+      if(bars[j].high >= candidateHigh) isPH = false;
+      if(bars[j].low <= candidateLow) isPL = false;
+      if(!isPH && !isPL) break;
+    }
+    if(isPH) levels.push({price:candidateHigh, label:'PH', color:'#ef4444', width:2});
+    if(isPL) levels.push({price:candidateLow, label:'PL', color:'#22c55e', width:2});
   }
-
-  // merge nearby levels
+  // merge near prices
   const merged = [];
-  for (let lv of levels) {
-    const found = merged.find(m => Math.abs(m.price - lv.price) < lv.price * 0.002);
-    if (found) {
-      found.price = (found.price + lv.price) / 2;
-      found.count = (found.count || 1) + 1;
-    } else merged.push({ ...lv, count: 1 });
+  levels.sort((a,b)=>b.price-a.price);
+  for(const L of levels){
+    const found = merged.find(m=>Math.abs(m.price - L.price) < (L.price*0.0015 + 1e-8));
+    if(found){ found.count=(found.count||1)+1; found.price=(found.price+L.price)/2; }
+    else merged.push({...L, count:1});
   }
-
-  merged.sort((a, b) => b.count - a.count);
-  return merged.slice(0, 30);
+  merged.sort((a,b)=>b.count - a.count);
+  return merged.slice(0,50);
 }
 
-function computeLuxSR(bars, len = 50, mlt = 2) {
-  if (bars.length < len) return [];
-
-  const closes = bars.map(b => b.close);
-  const sma = [];
+/* Lux simplified: SMA and upper/lower bands (last value -> horizontal) */
+function computeLuxSR(bars, len=50, mlt=2) {
+  if(bars.length < len) return [];
+  const closes = bars.map(b=>b.close);
   let sum = 0;
-
-  for (let i = 0; i < closes.length; i++) {
-    sum += closes[i];
-    if (i >= len) sum -= closes[i - len];
-    sma[i] = i >= len - 1 ? sum / len : null;
-  }
-
-  const last = bars.length - 1;
-  if (!sma[last]) return [];
-
-  // compute std dev
-  const slice = closes.slice(last - len + 1, last + 1);
-  const avg = sma[last];
-
-  const variance = slice.reduce((s, x) => s + (x - avg) ** 2, 0) / len;
+  for(let i=0;i<len;i++) sum += closes[closes.length - len + i];
+  const mean = sum / len;
+  let variance = 0;
+  for(let i=closes.length - len;i<closes.length;i++) variance += Math.pow(closes[i]-mean,2);
+  variance /= len;
   const std = Math.sqrt(variance);
-
+  const upper = mean + mlt*std;
+  const lower = mean - mlt*std;
   return [
-    { price: avg + mlt * std, label: "Lux Upper", color: "#ffd166", width: 1 },
-    { price: avg, label: "Lux SMA", color: "#60a5fa", width: 2 },
-    { price: avg - mlt * std, label: "Lux Lower", color: "#7c3aed", width: 1 }
+    {price: upper, label:'Lux Upper', color:'#f6c85f', width:1},
+    {price: mean, label:'Lux SMA', color:'#60a5fa', width:2},
+    {price: lower, label:'Lux Lower', color:'#7c3aed', width:1}
   ];
 }
 
-function computeIsland(bars, len = 10, volFilter = true) {
-  const out = [];
-  for (let i = 2; i < bars.length - 2; i++) {
-    const p = bars[i - 1];
-    const c = bars[i];
-    const n = bars[i + 1];
-
-    // bullish
-    if (c.low > p.high && n.high < c.low) {
-      out.push({ top: c.high, bottom: c.low, bullish: true });
+/* Island reversal detection (simplified): detect gap up then gap down or vice versa */
+function computeIslandReversals(bars, trendLen=10, volFilter=true){
+  const res = [];
+  for(let i=1;i<bars.length-1;i++){
+    const prev = bars[i-1], cur = bars[i], next = bars[i+1];
+    // bullish island: gap up (cur.low > prev.high), then gap down (next.high < cur.low)
+    if(cur.low > prev.high && next.high < cur.low){
+      if(volFilter){
+        let volAvg=0, count=0;
+        for(let k=Math.max(0,i-trendLen); k<i; k++){ volAvg += bars[k].volume; count++; }
+        volAvg = count? volAvg/count:0;
+        if(cur.volume < volAvg) continue;
+      }
+      res.push({startTime: cur.time, endTime: next.time, top: cur.high, bottom: cur.low, bullish:true});
     }
-
-    // bearish
-    if (c.high < p.low && n.low > c.high) {
-      out.push({ top: c.high, bottom: c.low, bullish: false });
+    // bearish island
+    if(cur.high < prev.low && next.low > cur.high){
+      if(volFilter){
+        let volAvg=0, count=0;
+        for(let k=Math.max(0,i-trendLen); k<i; k++){ volAvg += bars[k].volume; count++; }
+        volAvg = count? volAvg/count:0;
+        if(cur.volume < volAvg) continue;
+      }
+      res.push({startTime: cur.time, endTime: next.time, top: cur.high, bottom: cur.low, bullish:false});
     }
   }
-  return out;
+  return res;
 }
 
-/* -------------------------------------------------------
-   DRAW INDICATORS
-------------------------------------------------------- */
-function clearIndicators() {
-  srLines.forEach(pl => { try { candleSeries.removePriceLine(pl); } catch (e) {} });
-  srLines = [];
+/* remove existing price lines */
+function clearIndicators(){
+  if(!chart || !candleSeries) return;
+  for(const pl of srPriceLines){
+    try{ candleSeries.removePriceLine(pl); }catch(e){}
+  }
+  srPriceLines = [];
 }
 
-function drawLines(levels) {
-  levels.forEach(L => {
-    const pl = candleSeries.createPriceLine({
-      price: L.price,
-      color: L.color,
-      title: L.label,
-      lineWidth: L.width
-    });
-    srLines.push(pl);
-  });
+/* draw horizontals */
+function drawSR(levels){
+  for(const L of levels){
+    try{
+      const pl = candleSeries.createPriceLine({
+        price: L.price,
+        color: L.color || '#999',
+        lineWidth: L.width || 1,
+        lineStyle: LightweightCharts.LineStyle.Solid,
+        axisLabelVisible: true,
+        title: L.label || ''
+      });
+      srPriceLines.push(pl);
+    }catch(e){ console.warn('createPriceLine failed', e); }
+  }
 }
 
-function drawIslands(list) {
-  list.forEach(i => {
-    const color = i.bullish ? "#0f8" : "#f44";
-
-    const top = candleSeries.createPriceLine({
-      price: i.top,
-      color,
-      lineWidth: 2,
-      title: "Island"
-    });
-    const bottom = candleSeries.createPriceLine({
-      price: i.bottom,
-      color,
-      lineWidth: 2,
-      title: ""
-    });
-    srLines.push(top, bottom);
-  });
+/* draw islands as top+bottom price lines */
+function drawIslands(islands){
+  for(const it of islands){
+    const c = it.bullish ? 'rgba(8,153,129,0.18)' : 'rgba(242,54,69,0.18)';
+    const top = candleSeries.createPriceLine({price: it.top, color: c, lineWidth:2, title: it.bullish?'IslandTop':'IslandTop'});
+    const bot = candleSeries.createPriceLine({price: it.bottom, color: c, lineWidth:2, title: it.bullish?'IslandBottom':'IslandBottom'});
+    srPriceLines.push(top, bot);
+  }
 }
 
-/* -------------------------------------------------------
-   LOAD CHART
-------------------------------------------------------- */
-async function loadChart(symbol) {
+/* ---------------- Main loadChart ---------------- */
+async function loadChart(symbol){
+  if(!symbol) return;
   lastSymbol = symbol;
+  attachActive();
   createChart();
-  showSpinner();
-  hideError();
+  showSpinner(); hideError();
+  symbolTitle.innerText = symbol;
 
-  symbolTitle.textContent = symbol;
+  // fetch data
+  let raw = await fetchOHLC(symbol, activeTF);
+  // if intraday desired but AV returned daily due to failure, synthesize
+  if((activeTF==='1m'||activeTF==='5m'||activeTF==='15m'||activeTF==='30m'||activeTF==='60m') && raw.length>0){
+    // if raw appears daily (big gaps between timestamps) and not intraday, convert
+    const avgDiff = raw.length > 2 ? (raw[raw.length-1].time - raw[0].time) / raw.length : 86400;
+    if(avgDiff > 4000 && avgDiff > (activeTF.includes('m') ? 60 : 1) * 3600){ 
+      raw = convertDailyToTF(raw, activeTF);
+    }
+  }
 
-  // FETCH DAILY SOURCE
-  let src = await fetchOHLC(symbol, "1y", "1d");
+  const bars = ensureAscending(raw);
   hideSpinner();
+  if(!bars || bars.length===0){ showError('No data returned for ' + symbol); return; }
 
-  if (!src.length) {
-    showError("No data received");
+  // Prepare lightweight data (time as epoch seconds)
+  const lcData = bars.map(b=>({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close }));
+  try{
+    candleSeries.setData(lcData);
+    chart.timeScale().fitContent();
+  }catch(err){
+    console.error('chart.setData error', err);
+    showError('Chart rendering error — invalid data format');
     return;
   }
 
-  src.sort((a, b) => a.time - b.time);
+  // volume
+  const vData = bars.map(b=>({ time: b.time, value: b.volume || 0, color: b.close >= b.open ? '#22c55e' : '#ef4444' }));
+  try{ volumeSeries.setData(vData); }catch(e){}
 
-  // SOURCE interval guess
-  let srcSec = 86400;
-  if (src.length > 1) srcSec = src[1].time - src[0].time;
-
-  const bars = convertToTF(src, srcSec, activeTF);
-
-  const cData = bars.map(b => ({
-    time: b.time,
-    open: b.open,
-    high: b.high,
-    low: b.low,
-    close: b.close
-  }));
-
-  candleSeries.setData(cData);
-
-  if (showVolume.checked) {
-    volumeSeries.setData(
-      bars.map(b => ({
-        time: b.time,
-        value: b.volume,
-        color: b.close >= b.open ? "#22c55e" : "#ef4444"
-      }))
-    );
-  } else {
-    volumeSeries.setData([]);
-  }
-
+  // indicators
   clearIndicators();
-  if (toggleReliable.checked) drawLines(computeReliableSR(bars, pivotLeft.valueAsNumber, pivotRight.valueAsNumber));
-  if (toggleLux.checked) drawLines(computeLuxSR(bars, luxLen1.valueAsNumber, luxMlt1.valueAsNumber));
-  if (toggleIsland.checked) drawIslands(computeIsland(bars, islandTrend.valueAsNumber, islandVolFilter.checked));
+  // Reliable
+  const sr = computeReliableSR(bars, pivotLeft.valueAsNumber || 15, pivotRight.valueAsNumber || 15);
+  drawSR(sr.map(s=>({price:s.price, label:s.label, color:s.color, width:s.width})));
+  // Lux
+  const lux = computeLuxSR(bars, luxLen1.valueAsNumber || 50, luxMlt1.valueAsNumber || 2);
+  drawSR(lux);
+  // Island
+  const islands = computeIslandReversals(bars, islandTrend.valueAsNumber || 10, islandVolFilter.checked);
+  drawIslands(islands);
 
-  setupPolling(symbol);
+  // start live polling for latest quote (simple approach: re-fetch full set every interval)
+  setupLivePolling(symbol);
 }
 
-/* -------------------------------------------------------
-   LIVE POLLING (SAFE & SIMPLE)
-------------------------------------------------------- */
-function isMarketOpen() {
+/* ---------------- Live Polling ---------------- */
+function isTradingNowLocal(){
   const d = new Date();
-  const h = d.getHours();
-  const m = d.getMinutes();
-  return (h > 9 && h < 16) || (h === 9 && m >= 0) || (h === 15 && m <= 30);
+  // approximate trading hours 09:15 - 15:30 local
+  const hrs = d.getHours(), mins = d.getMinutes();
+  // If local timezone is IST (user likely in India), hours 9..15 window
+  if(hrs > 9 && hrs < 16) return true;
+  if(hrs === 9 && mins >= 0) return true;
+  if(hrs === 16 && mins <= 0) return false;
+  return false;
+}
+async function setupLivePolling(symbol){
+  // clear existing timer
+  if(pollTimer) clearInterval(pollTimer);
+  const intervalSec = 8; // default poll
+  pollTimer = setInterval(async ()=>{
+    try{
+      // if not trading hours, skip polling but allow manual reload
+      if(!isTradingNowLocal()) return;
+      // fetch latest 2 days/daily or intraday tick
+      const latest = await fetchOHLC(symbol, activeTF);
+      if(!latest || latest.length===0) return;
+      // simply reload chart (safe)
+      await loadChart(symbol);
+    }catch(err){ console.warn('poll error', err); }
+  }, intervalSec*1000);
 }
 
-function setupPolling(symbol) {
-  if (pollTimer) clearInterval(pollTimer);
+/* initial rendering */
+renderWatchlist();
+renderPresets = (()=>{})(); // placeholder safe
+renderPresets = function(){ /* recreate function above for initial call */ };
+renderPresets();
+renderWatchlist();
 
-  const sec = Math.max(2, pollIntervalInput.valueAsNumber || 5);
+/* attach apply button */
+applyIndicatorsBtn.addEventListener('click', ()=> { if(lastSymbol) loadChart(lastSymbol); });
 
-  pollTimer = setInterval(async () => {
-    if (!isMarketOpen()) return;
+/* auto load first */
+if(watchSymbols.length>0) loadChart(watchSymbols[0]);
 
-    const recent = await fetchOHLC(symbol, "5d", "1d");
-    if (!recent.length) return;
+/* cleanup */
+window.addEventListener('beforeunload', ()=>{ if(pollTimer) clearInterval(pollTimer); });
 
-    loadChart(symbol); // safe + stable
-  }, sec * 1000);
-}
-
-/* -------------------------------------------------------
-   EVENT HANDLERS
-------------------------------------------------------- */
-document.querySelectorAll(".tf-btn").forEach(btn => {
-  btn.onclick = () => {
-    document.querySelectorAll(".tf-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    activeTF = btn.dataset.tf;
-    if (lastSymbol) loadChart(lastSymbol);
-  };
-});
-
-applyIndicatorsBtn.onclick = () => {
-  if (lastSymbol) loadChart(lastSymbol);
-};
-
-/* -------------------------------------------------------
-   INITIAL LOAD
-------------------------------------------------------- */
-loadChart(watchSymbols[0] || "RELIANCE.NS");
+/* resizing */
+window.addEventListener('resize', ()=> { if(chart) chart.applyOptions({ width: chartDiv.clientWidth, height: chartDiv.clientHeight }); });
 
 </script>
 </body>
