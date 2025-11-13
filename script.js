@@ -10,18 +10,22 @@ function loadChart(symbol) {
     theme: "dark",
     style: "1",
     locale: "en",
+    enable_publishing: false,
     container_id: "chart-container"
   });
 }
 
-loadChart("RELIANCE.NS");  // default
+// Default chart
+loadChart("RELIANCE.NS");
 
+// Click on watchlist
 document.querySelectorAll("#watchlist li").forEach(item => {
   item.addEventListener("click", () => {
     loadChart(item.dataset.symbol);
   });
 });
 
+// Search filter
 document.getElementById("search").addEventListener("input", e => {
   let value = e.target.value.toUpperCase();
   document.querySelectorAll("#watchlist li").forEach(li => {
