@@ -2,9 +2,10 @@ html, body {
   height: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden; /* prevents scrollbars */
 }
+
 body {
-  margin: 0;
   font-family: Arial, sans-serif;
   background: #0f172a;
   color: white;
@@ -20,6 +21,8 @@ body {
   background: #1e293b;
   padding: 1rem;
   border-right: 1px solid #334155;
+  height: 100vh; /* ensure sidebar matches full height */
+  box-sizing: border-box;
 }
 
 .sidebar h2 {
@@ -38,6 +41,7 @@ body {
 #watchlist {
   list-style: none;
   padding: 0;
+  margin: 0;
 }
 
 #watchlist li {
@@ -58,9 +62,12 @@ body {
   justify-content: center;
   align-items: center;
   background: #0f172a;
+  height: 100vh; /* critical fix */
+  box-sizing: border-box;
 }
 
 #chart-container {
-  width: 95%;
-  height: 95%;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
