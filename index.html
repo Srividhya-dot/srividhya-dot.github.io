@@ -533,6 +533,12 @@ function drawIslands(arr){
 /* -----------------------------------------------------------
     MAIN: LOAD CHART
 ------------------------------------------------------------ */
+  function attachActiveToList(sym){
+  Array.from(watchlistEl.children).forEach(li=>{
+    li.classList.toggle('active', li.dataset.symbol === sym);
+  });
+}
+
 async function loadChart(symbol){
   lastSymbol = symbol;
   highlightActive(symbol);
