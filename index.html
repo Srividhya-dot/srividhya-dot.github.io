@@ -1,65 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Trading Chakra</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trading Chakra</title>
 
-  <link rel="stylesheet" href="style.css" />
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css" />
 
-  <!-- Lightweight Charts -->
-  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+    <!-- Lightweight Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 
 <body>
-  <div id="app">
+<div id="app">
 
-    <!-- ===========================
-         LEFT SIDEBAR (Watchlist)
-         =========================== -->
+    <!-- --------------------------------- -->
+    <!-- LEFT SIDEBAR -->
+    <!-- --------------------------------- -->
     <aside class="sidebar">
-      <h1>Watchlist</h1>
+        <h1>Watchlist</h1>
 
-      <input id="search" type="text" placeholder="Search stock..." />
+        <input id="search" type="text" placeholder="Search stock...">
 
-      <ul id="watchlist">
-        <li data-symbol="RELIANCE.NS">RELIANCE</li>
-        <li data-symbol="TCS.NS">TCS</li>
-        <li data-symbol="INFY.NS">INFY</li>
-        <li data-symbol="HDFCBANK.NS">HDFCBANK</li>
-        <li data-symbol="ICICIBANK.NS">ICICIBANK</li>
-      </ul>
+        <ul id="watchlist">
+            <li data-symbol="RELIANCE.NS">RELIANCE</li>
+            <li data-symbol="TCS.NS">TCS</li>
+            <li data-symbol="INFY.NS">INFY</li>
+            <li data-symbol="HDFCBANK.NS">HDFCBANK</li>
+            <li data-symbol="ICICIBANK.NS">ICICIBANK</li>
+        </ul>
     </aside>
 
-    <!-- ===========================
-         MAIN CHART AREA
-         =========================== -->
+    <!-- --------------------------------- -->
+    <!-- MAIN CHART AREA -->
+    <!-- --------------------------------- -->
     <main class="chart-area">
 
-      <!-- Top bar above chart -->
-      <div id="toolbar">
-        <span id="symbol-title">Loading...</span>
-      </div>
+        <!-- TOP TOOLBAR -->
+        <div id="toolbar">
+            <span id="symbol-title">Loading...</span>
+        </div>
 
-      <!-- Chart + Volume stacked -->
-      <div id="chart-wrapper">
+        <!-- CHART + VOLUME CONTAINER -->
+        <div id="chart-wrapper">
+            <div id="chart"></div>
+            <div id="volume"></div>
 
-        <div id="chart"></div>
-        <div id="volume"></div>
+            <!-- CENTER SPINNER -->
+            <div id="spinner">Loading...</div>
 
-        <!-- Spinner -->
-        <div id="spinner">Loading…</div>
-
-        <!-- Error message -->
-        <div id="error"></div>
-      </div>
+            <!-- ERROR BOX -->
+            <div id="error"></div>
+        </div>
 
     </main>
+</div>
 
-  </div>
-
-  <!-- Your JS -->
-  <script src="script.js"></script>
+<!-- SCRIPT -->
+<script src="script.js"></script>
 
 </body>
 </html>
