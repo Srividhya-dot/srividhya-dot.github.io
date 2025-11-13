@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Trading Chakra — Indicators + Presets</title>
+<title>Trading Chakra — Presets + Worker</title>
 
 <!-- Lightweight Charts -->
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
@@ -66,15 +66,24 @@ input[type="text"], input[type="number"], input[type="range"], select{width:100%
 /* live price */
 #live-price{position:absolute;right:12px;top:70px;background:rgba(0,0,0,0.6);padding:8px 10px;border-radius:8px;font-weight:700;display:none}
 
+/* modal preview */
+#preset-preview-modal{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:9999}
+#preset-preview{background:#071827;padding:18px;border-radius:10px;width:520px;color:#e6eef8}
+#preset-preview h3{margin-top:0}
+.preset-diff{background:#081b24;padding:10px;border-radius:8px;margin-bottom:10px;max-height:320px;overflow:auto}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+
 /* responsive */
 @media (max-width:1000px){
   #app{grid-template-columns:1fr}
   .sidebar{height:260px;overflow:auto}
   .chart-area{height:calc(100vh - 260px)}
+  #preset-preview{width:92%}
 }
 </style>
 </head>
 <body>
+
 <div id="app">
   <aside class="sidebar">
     <h2>Watchlist</h2>
@@ -167,7 +176,7 @@ input[type="text"], input[type="number"], input[type="range"], select{width:100%
     <div style="color:var(--muted);font-size:13px;margin-top:6px">
       Notes:<br>
       - Presets include indicator toggles & parameters but <b>do not change timeframe</b>.<br>
-      - Exported preset is a JSON string you can copy & import later.
+      - Preview modal appears only when preset toggles change indicator ON/OFF.
     </div>
   </aside>
 
@@ -203,12 +212,25 @@ input[type="text"], input[type="number"], input[type="range"], select{width:100%
   </main>
 </div>
 
+<!-- Preview modal -->
+<div id="preset-preview-modal">
+  <div id="preset-preview">
+    <h3>Preset Preview</h3>
+    <div id="preset-preview-name" style="font-weight:700;margin-bottom:8px"></div>
+    <div class="preset-diff" id="preset-diff"></div>
+    <div class="modal-actions">
+      <button id="preview-apply" style="background:var(--btn);border:none;padding:8px 12px;border-radius:6px;cursor:pointer">Apply</button>
+      <button id="preview-cancel" style="background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 12px;border-radius:6px;cursor:pointer">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* -----------------------------
-   CONFIG / STATE
+   CONFIG & STATE
    ----------------------------- */
-const WORKER_URL = "https://black-tree-2e32.sriviadithi.workers.dev/?symbol=";
-const POLL_INTERVAL = 15000; // ms
+const WORKER_URL = "https://black-tree-2e32.sriviadithi.workers.dev/?symbol="; // worker base, we add &tf=
+const POLL_INTERVAL = 15000;
 const PRESETS_KEY = 'tc_indicator_presets_v1';
 const WATCHLIST_KEY = 'tc_watchlist_v1';
 
@@ -246,41 +268,158 @@ const presetNameInput = document.getElementById('preset-name');
 const presetsListEl = document.getElementById('presets-list');
 const exportBtn = document.getElementById('export-preset');
 
+const previewModal = document.getElementById('preset-preview-modal');
+const previewName = document.getElementById('preset-preview-name');
+const previewDiff = document.getElementById('preset-diff');
+const previewApply = document.getElementById('preview-apply');
+const previewCancel = document.getElementById('preview-cancel');
+
 /* Chart elements */
 const chartDiv = document.getElementById('chart');
 const volumeDiv = document.getElementById('volume');
 
-/* global chart objects */
+/* chart objects */
 let chart = null, candleSeries = null, volumeSeries = null;
 let priceLine = null;
 
-/* other state */
+/* app state */
 let WATCHLIST = [];
 let ACTIVE_SYMBOL = null;
 let ACTIVE_TF = '1D';
 let POLL_TIMER = null;
 
-/* DRAW storage */
+/* drawings */
 const DRAW = { reliable: [], lux: [], island: [] };
 
+/* web worker (will be created from string blob) */
+let indicatorsWorker = null;
+
 /* -----------------------------
-   Utility: watchlist persistence
+   Build worker from JS string (so we have a single file)
+   Worker will accept messages:
+   { cmd: 'compute', ohlc: [...], settings: { reliable, lux, island } }
+   and return:
+   { cmd: 'result', reliable: {res:[], sup:[]}, lux: [...], island: [...] }
+   ----------------------------- */
+const workerCode = `
+
+self.onmessage = function(e){
+  const msg = e.data;
+  if(msg.cmd === 'compute'){
+    const ohlc = msg.ohlc || [];
+    const settings = msg.settings || {};
+    // compute reliable pivots (simple pivot method)
+    const left = settings.reliable?.left || 15;
+    const right = settings.reliable?.right || 15;
+    const reliable = { res: [], sup: [] };
+    if(ohlc.length >= left + right + 3){
+      for(let i=left;i<ohlc.length-right;i++){
+        const hi = ohlc[i].high, lo = ohlc[i].low;
+        let isPh=true, isPl=true;
+        for(let l=1;l<=left;l++){ if(ohlc[i-l].high >= hi) isPh=false; if(ohlc[i-l].low <= lo) isPl=false; }
+        for(let r=1;r<=right;r++){ if(ohlc[i+r].high >= hi) isPh=false; if(ohlc[i+r].low <= lo) isPl=false; }
+        if(isPh) reliable.res.push({price: hi, idx: i});
+        if(isPl) reliable.sup.push({price: lo, idx: i});
+      }
+      reliable.res.sort((a,b)=>b.idx-a.idx);
+      reliable.sup.sort((a,b)=>b.idx-a.idx);
+      // unique top 3
+      function uniqueTop(arr,count){
+        const out=[]; for(const it of arr){
+          const exists = out.some(x=> Math.abs(x - it.price) < (it.price*0.0005 + 0.0001));
+          if(!exists) out.push(it.price);
+          if(out.length>=count) break;
+        }
+        return out;
+      }
+      reliable.res = uniqueTop(reliable.res, 3);
+      reliable.sup = uniqueTop(reliable.sup, 3);
+    }
+
+    // Lux-like S/R: compute sma & sd for each choice
+    const luxChoices = settings.luxChoices || [{len:50,mlt:2},{len:100,mlt:2},{len:20,mlt:2}];
+    const lux = [];
+    if(ohlc.length > 0){
+      const closes = ohlc.map(d=>d.close);
+      for(const ch of luxChoices){
+        const len = ch.len || 50, mlt = ch.mlt || 2;
+        if(closes.length >= len){
+          const slice = closes.slice(-len);
+          const mean = slice.reduce((a,b)=>a+b,0) / slice.length;
+          const sd = Math.sqrt(slice.reduce((a,b)=>a + (b-mean)*(b-mean),0)/slice.length);
+          lux.push({ priceUp: mean + mlt*sd, priceLo: mean - mlt*sd, len, mlt });
+        }
+      }
+    }
+
+    // Island reversal - gap detection (simple)
+    const island = [];
+    if(ohlc.length >= 3){
+      for(let i=1;i<ohlc.length;i++){
+        const prev = ohlc[i-1], cur = ohlc[i];
+        if(cur.low > prev.high){
+          let end = i;
+          while(end+1 < ohlc.length && ohlc[end+1].low > prev.high && (end - i) < 40) end++;
+          const highs = ohlc.slice(i,end+1).map(x=>x.high), lows=ohlc.slice(i,end+1).map(x=>x.low);
+          island.push({start:i, end:end, top: Math.max(...highs), bottom: Math.min(...lows), bullish:true});
+        } else if(cur.high < prev.low){
+          let end = i;
+          while(end+1 < ohlc.length && ohlc[end+1].high < prev.low && (end - i) < 40) end++;
+          const highs = ohlc.slice(i,end+1).map(x=>x.high), lows=ohlc.slice(i,end+1).map(x=>x.low);
+          island.push({start:i, end:end, top: Math.max(...highs), bottom: Math.min(...lows), bullish:false});
+        }
+      }
+    }
+
+    self.postMessage({ cmd: 'result', reliable: reliable, lux: lux, island: island, reqId: msg.reqId });
+  }
+};
+
+// basic helpers could be added later
+`;
+
+function createWorkerFromString(code){
+  const blob = new Blob([code], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  const w = new Worker(url);
+  return w;
+}
+
+/* create worker */
+indicatorsWorker = createWorkerFromString(workerCode);
+
+/* helper to call worker: returns Promise */
+let workerReqId = 0;
+function computeIndicatorsInWorker(ohlc, settings){
+  return new Promise((resolve, reject) => {
+    const reqId = ++workerReqId;
+    function handler(e){
+      const data = e.data;
+      if(!data || data.reqId !== reqId) return;
+      if(data.cmd === 'result'){
+        indicatorsWorker.removeEventListener('message', handler);
+        resolve(data);
+      }
+    }
+    indicatorsWorker.addEventListener('message', handler);
+    indicatorsWorker.postMessage({ cmd: 'compute', ohlc: ohlc, settings: settings, reqId: reqId });
+    // timeout fallback in 6s
+    setTimeout(()=> {
+      indicatorsWorker.removeEventListener('message', handler);
+      reject(new Error('Worker timeout'));
+    }, 6000);
+  });
+}
+
+/* -----------------------------
+   UI: Watchlist, presets handling, chart creation
    ----------------------------- */
 function loadWatchlist(){
-  try{
-    const raw = localStorage.getItem(WATCHLIST_KEY);
-    WATCHLIST = raw ? JSON.parse(raw) : [
-      {symbol:'RELIANCE.NS', label:'RELIANCE'},
-      {symbol:'TCS.NS', label:'TCS'},
-      {symbol:'INFY.NS', label:'INFY'},
-      {symbol:'HDFCBANK.NS', label:'HDFCBANK'},
-      {symbol:'ICICIBANK.NS', label:'ICICIBANK'}
-    ];
-  }catch(e){ WATCHLIST = []; }
+  try{ const raw = localStorage.getItem(WATCHLIST_KEY); WATCHLIST = raw ? JSON.parse(raw) : [
+    {symbol:'RELIANCE.NS', label:'RELIANCE'}, {symbol:'TCS.NS', label:'TCS'}, {symbol:'INFY.NS', label:'INFY'}, {symbol:'HDFCBANK.NS', label:'HDFCBANK'}, {symbol:'ICICIBANK.NS', label:'ICICIBANK'}
+  ]; }catch(e){ WATCHLIST = []; }
 }
 function saveWatchlist(){ localStorage.setItem(WATCHLIST_KEY, JSON.stringify(WATCHLIST)); }
-
-/* render watchlist */
 function renderWatchlist(){
   watchlistEl.innerHTML = '';
   WATCHLIST.forEach(item=>{
@@ -292,28 +431,18 @@ function renderWatchlist(){
     watchlistEl.appendChild(li);
   });
 }
-
-/* add symbol */
 addBtn.addEventListener('click', ()=>{
-  const v = addStockInput.value.trim();
-  if(!v) return;
-  let sym = v.toUpperCase();
-  if(!sym.includes('.')) sym = sym + '.NS';
+  const v = addStockInput.value.trim(); if(!v) return;
+  let sym = v.toUpperCase(); if(!sym.includes('.')) sym = sym + '.NS';
   WATCHLIST.unshift({symbol:sym, label: sym.replace('.NS','')});
-  saveWatchlist(); renderWatchlist();
-  addStockInput.value = '';
-  loadChart(sym);
+  saveWatchlist(); renderWatchlist(); addStockInput.value = ''; loadChart(sym);
 });
-
-/* search filter */
-document.getElementById('search').addEventListener('input', (e)=>{
+document.getElementById('search').addEventListener('input', (e)=> {
   const q = e.target.value.trim().toLowerCase();
-  [...watchlistEl.children].forEach(li=>{
-    li.style.display = (!q || li.textContent.toLowerCase().includes(q)) ? '' : 'none';
-  });
+  [...watchlistEl.children].forEach(li=> li.style.display = (!q || li.textContent.toLowerCase().includes(q)) ? '' : 'none');
 });
 
-/* timeframe buttons */
+/* timeframes */
 tfButtons.forEach(btn=>{
   btn.addEventListener('click', ()=>{
     tfButtons.forEach(b=>b.classList.remove('active'));
@@ -323,9 +452,7 @@ tfButtons.forEach(btn=>{
   });
 });
 
-/* -----------------------------
-   Chart creation
-   ----------------------------- */
+/* create chart */
 function createChart(){
   if(chart) return;
   chart = LightweightCharts.createChart(chartDiv, {
@@ -340,134 +467,42 @@ function createChart(){
   window.addEventListener('resize', ()=> chart.applyOptions({ width: chartDiv.clientWidth, height: chartDiv.clientHeight }));
 }
 
-/* -----------------------------
-   Worker fetch helper
-   Worker must return array of {time, open, high, low, close, volume?}
-   For tf=last the worker may return single object or array with one element.
-   ----------------------------- */
+/* fetch worker data */
 async function fetchData(symbol, tf){
   const url = WORKER_URL + encodeURIComponent(symbol) + '&tf=' + encodeURIComponent(tf);
   const res = await fetch(url);
   if(!res.ok) throw new Error('HTTP ' + res.status);
   const j = await res.json();
-  // normalize to array
-  const arr = Array.isArray(j) ? j : (j ? [j] : []);
-  // normalize times -> unix seconds
+  const arr = Array.isArray(j) ? j : j ? [j] : [];
   return arr.map(d=>{
     let t = d.time;
     if(typeof t === 'string'){ const dt = Date.parse(t); if(!isNaN(dt)) t = Math.floor(dt/1000); }
-    if(typeof t === 'number' && String(t).length > 10) t = Math.floor(t/1000); // ms -> s
+    if(typeof t === 'number' && String(t).length > 10) t = Math.floor(t/1000);
     return { time: t, open:+d.open, high:+d.high, low:+d.low, close:+d.close, volume:+(d.volume||0) };
   });
 }
 
-/* -----------------------------
-   Indicator calculations (JS versions)
-   Each uses current UI parameters
-   ----------------------------- */
-
-/* Reliable S/R pivot-based */
-function calcReliableSR(ohlc, opts){
-  // opts: {left,right, lookback}
-  const left = opts.left || 15, right = opts.right || 15;
-  const res = {res:[], sup:[]};
-  if(!ohlc || ohlc.length < left + right + 3) return res;
-  const n = ohlc.length;
-  for(let i=left;i<n-right;i++){
-    const hi = ohlc[i].high, lo = ohlc[i].low;
-    let isPh = true, isPl = true;
-    for(let l=1;l<=left;l++){
-      if(ohlc[i-l].high >= hi) isPh = false;
-      if(ohlc[i-l].low <= lo) isPl = false;
-    }
-    for(let r=1;r<=right;r++){
-      if(ohlc[i+r].high >= hi) isPh = false;
-      if(ohlc[i+r].low <= lo) isPl = false;
-    }
-    if(isPh) res.res.push({price:hi, idx:i});
-    if(isPl) res.sup.push({price:lo, idx:i});
-  }
-  res.res.sort((a,b)=>b.idx-a.idx);
-  res.sup.sort((a,b)=>b.idx-a.idx);
-  function pickUnique(arr,count=3){
-    const out=[]; for(const it of arr){
-      const exists = out.some(x=>Math.abs(x-it.price) < (it.price*0.0005 + 0.0001));
-      if(!exists) out.push(it.price);
-      if(out.length>=count) break;
-    }
-    return out;
-  }
-  return {res: pickUnique(res.res,3), sup: pickUnique(res.sup,3)};
-}
-
-/* Lux-like S/R: SMA ± mlt * sd */
-function calcLuxSR(ohlc, choices){
-  if(!ohlc || ohlc.length < 5) return [];
-  const closes = ohlc.map(x=>x.close);
-  function sma(arr,len){
-    if(arr.length < len) return null;
-    let s=0; for(let i=arr.length-len;i<arr.length;i++) s+=arr[i];
-    return s/len;
-  }
-  const out=[];
-  for(const ch of choices){
-    const len = ch.len, mlt = ch.mlt;
-    if(closes.length < len) continue;
-    const mean = sma(closes,len);
-    const slice = closes.slice(-len);
-    const sd = Math.sqrt(slice.reduce((acc,v)=>acc+(v-mean)*(v-mean),0)/slice.length);
-    out.push({price: mean + mlt*sd, name:'lux_up_'+len});
-    out.push({price: mean - mlt*sd, name:'lux_lo_'+len});
-  }
-  return out;
-}
-
-/* Island Reversals: simple gap detection */
-function calcIslandReversals(ohlc){
-  const boxes=[];
-  if(!ohlc || ohlc.length<3) return boxes;
-  // scan last N bars for gaps
-  for(let i=1;i<ohlc.length;i++){
-    const prev = ohlc[i-1], cur = ohlc[i];
-    if(cur.low > prev.high){ // bullish gap (island start)
-      let end=i, limit=i+40;
-      while(end+1<ohlc.length && ohlc[end+1].low > prev.high && end<limit) end++;
-      const highs = ohlc.slice(i,end+1).map(x=>x.high), lows=ohlc.slice(i,end+1).map(x=>x.low);
-      boxes.push({start:i, end:end, top:Math.max(...highs), bottom:Math.min(...lows), bullish:true});
-    } else if(cur.high < prev.low){ // bearish gap
-      let end=i, limit=i+40;
-      while(end+1<ohlc.length && ohlc[end+1].high < prev.low && end<limit) end++;
-      const highs = ohlc.slice(i,end+1).map(x=>x.high), lows=ohlc.slice(i,end+1).map(x=>x.low);
-      boxes.push({start:i, end:end, top:Math.max(...highs), bottom:Math.min(...lows), bullish:false});
-    }
-  }
-  return boxes;
-}
-
-/* -----------------------------
-   Drawing helpers using createPriceLine
-   ----------------------------- */
+/* drawings helpers */
 function clearDrawings(){
   if(!candleSeries) return;
-  DRAW.reliable.forEach(l=>{ try{ candleSeries.removePriceLine(l) }catch(e){} });
-  DRAW.lux.forEach(l=>{ try{ candleSeries.removePriceLine(l) }catch(e){} });
-  DRAW.island.forEach(o=>{
-    try{ candleSeries.removePriceLine(o.topLine); candleSeries.removePriceLine(o.botLine); }catch(e){}
-  });
+  DRAW.reliable.forEach(l=>{ try{ candleSeries.removePriceLine(l); }catch(e){} });
+  DRAW.lux.forEach(l=>{ try{ candleSeries.removePriceLine(l); }catch(e){} });
+  DRAW.island.forEach(o=>{ try{ candleSeries.removePriceLine(o.topLine); candleSeries.removePriceLine(o.botLine);}catch(e){} });
   DRAW.reliable = []; DRAW.lux = []; DRAW.island = [];
 }
 
+/* draw functions */
 function drawReliable(levels){
   if(!toggleReliable.checked) return;
-  const colorR = '#ff6666', colorS = '#66ffb3';
   if(!candleSeries) return;
+  const colorR = '#ff6666', colorS = '#66ffb3';
   levels.res.forEach(p=>{
-    const line = candleSeries.createPriceLine({ price: p, color: colorR, lineWidth:2, lineStyle: LightweightCharts.LineStyle.Solid, axisLabelVisible:true, title: 'R' });
-    DRAW.reliable.push(line);
+    const pl = candleSeries.createPriceLine({ price: p, color: colorR, lineWidth:2, lineStyle: LightweightCharts.LineStyle.Solid, axisLabelVisible:true, title:'R' });
+    DRAW.reliable.push(pl);
   });
   levels.sup.forEach(p=>{
-    const line = candleSeries.createPriceLine({ price: p, color: colorS, lineWidth:2, lineStyle: LightweightCharts.LineStyle.Solid, axisLabelVisible:true, title: 'S' });
-    DRAW.reliable.push(line);
+    const pl = candleSeries.createPriceLine({ price: p, color: colorS, lineWidth:2, lineStyle: LightweightCharts.LineStyle.Solid, axisLabelVisible:true, title:'S' });
+    DRAW.reliable.push(pl);
   });
 }
 
@@ -476,8 +511,10 @@ function drawLux(entries){
   if(!candleSeries) return;
   entries.forEach((e,i)=>{
     const color = i%2===0 ? '#ffd54d' : '#8bd3ff';
-    const line = candleSeries.createPriceLine({ price: e.price, color: color, lineWidth:1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible:false });
-    DRAW.lux.push(line);
+    const pl = candleSeries.createPriceLine({ price: e.priceUp || e.price, color: color, lineWidth:1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible:false });
+    DRAW.lux.push(pl);
+    const pl2 = candleSeries.createPriceLine({ price: e.priceLo || (e.price - 0.0001), color: color, lineWidth:1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible:false });
+    DRAW.lux.push(pl2);
   });
 }
 
@@ -492,16 +529,15 @@ function drawIslands(boxes){
   });
 }
 
-/* live price marker */
 function setLivePrice(price){
   if(!candleSeries) return;
-  if(priceLine){ try{ candleSeries.removePriceLine(priceLine); }catch(e){}; priceLine = null; }
+  try{ if(priceLine) candleSeries.removePriceLine(priceLine); }catch(e){}
   priceLine = candleSeries.createPriceLine({ price: price, color:'#22c55e', lineWidth:2, axisLabelVisible:true, title: price.toFixed(2) });
   livePrice.style.display = ''; livePrice.textContent = price.toFixed(2);
 }
 
 /* -----------------------------
-   loadChart main
+   loadChart main: fetch data, send to worker, draw results
    ----------------------------- */
 async function loadChart(symbol){
   ACTIVE_SYMBOL = symbol;
@@ -512,39 +548,51 @@ async function loadChart(symbol){
   spinner.classList.remove('hidden');
   errorBox.style.display = 'none';
   clearDrawings();
-
   try{
     const raw = await fetchData(symbol, ACTIVE_TF);
-    if(!raw || raw.length === 0) throw new Error('No data');
+    if(!raw || raw.length === 0) throw new Error('No data returned');
 
     // set series
     candleSeries.setData(raw.map(d=>({time:d.time, open:d.open, high:d.high, low:d.low, close:d.close})));
     volumeSeries.setData(raw.map(d=>({time:d.time, value:d.volume||0, color: d.close>=d.open? '#22c55e' : '#ef4444'})));
     chart.timeScale().fitContent();
 
-    // compute using UI params
-    const reliableOpts = { left: parseInt(pivotLeftInput.value||15), right: parseInt(pivotRightInput.value||15) };
-    const reliable = calcReliableSR(raw, reliableOpts);
-    drawReliable(reliable);
+    // prepare settings for worker
+    const settings = {
+      reliable: { left: parseInt(pivotLeftInput.value||15), right: parseInt(pivotRightInput.value||15) },
+      luxChoices: [
+        { len: parseInt(luxLen1.value||50), mlt: parseFloat(luxMlt1.value||2) },
+        { len: parseInt(luxLen2.value||100), mlt: parseFloat(luxMlt2.value||2) },
+        { len: parseInt(luxLen3.value||20), mlt: parseFloat(luxMlt3.value||2) }
+      ],
+      island: {
+        trend: !!islandTrend.checked,
+        volume: !!islandVolume.checked,
+        r2: parseFloat(islandR2.value||0.5),
+        volMult: parseFloat(islandVol.value||5.0),
+        showR2: !!islandShowR2.checked
+      }
+    };
 
-    const luxChoices = [
-      {len: parseInt(luxLen1.value||50), mlt: parseFloat(luxMlt1.value||2)},
-      {len: parseInt(luxLen2.value||100), mlt: parseFloat(luxMlt2.value||2)},
-      {len: parseInt(luxLen3.value||20), mlt: parseFloat(luxMlt3.value||2)}
-    ];
-    const lux = calcLuxSR(raw, luxChoices);
-    drawLux(lux);
+    // compute in worker
+    const resp = await computeIndicatorsInWorker(raw, settings);
 
-    // island: use last N bars for local detection
-    const islands = calcIslandReversals(raw.slice(-400));
-    drawIslands(islands);
+    // draw results
+    if(resp.reliable) drawReliable(resp.reliable);
+    if(resp.lux) {
+      // transform lux result shape to keep compatibility with drawLux
+      const lx = resp.lux.map(x => ({ priceUp: x.priceUp, priceLo: x.priceLo }));
+      drawLux(lx);
+    }
+    if(resp.island) drawIslands(resp.island);
 
+    // set last price
     const last = raw[raw.length-1];
     setLivePrice(last.close);
 
     spinner.classList.add('hidden');
 
-    // polling
+    // polling live
     if(POLL_TIMER) clearInterval(POLL_TIMER);
     POLL_TIMER = setInterval(()=> pollLivePrice(symbol), POLL_INTERVAL);
 
@@ -556,7 +604,7 @@ async function loadChart(symbol){
   }
 }
 
-/* poll small latest tick (worker should support tf=last) */
+/* poll last tick */
 async function pollLivePrice(symbol){
   try{
     const url = WORKER_URL + encodeURIComponent(symbol) + '&tf=last';
@@ -565,26 +613,16 @@ async function pollLivePrice(symbol){
     const j = await res.json();
     const obj = Array.isArray(j) ? j[j.length-1] : j;
     if(obj && obj.close !== undefined) setLivePrice(+obj.close);
-  }catch(e){
-    console.debug('poll err', e);
-  }
+  }catch(e){ console.debug('poll err', e); }
 }
 
 /* -----------------------------
-   Presets: save / load / delete / apply
+   Presets: save / load / apply with preview logic (Option 3)
    ----------------------------- */
-function loadPresets(){
-  try{
-    const raw = localStorage.getItem(PRESETS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  }catch(e){ return []; }
-}
-function savePresets(list){
-  localStorage.setItem(PRESETS_KEY, JSON.stringify(list));
-}
+function loadPresets(){ try{ const raw = localStorage.getItem(PRESETS_KEY); return raw ? JSON.parse(raw) : []; }catch(e){ return []; } }
+function savePresets(list){ localStorage.setItem(PRESETS_KEY, JSON.stringify(list)); }
 
-/* build current settings object */
-function currentSettings(){
+function currentSettingsObj(){
   return {
     name: (document.getElementById('preset-name').value || '').trim(),
     toggles: {
@@ -592,28 +630,21 @@ function currentSettings(){
       lux: !!toggleLux.checked,
       island: !!toggleIsland.checked
     },
-    reliable: {
-      left: parseInt(pivotLeftInput.value||15),
-      right: parseInt(pivotRightInput.value||15)
-    },
+    reliable: { left: parseInt(pivotLeftInput.value||15), right: parseInt(pivotRightInput.value||15) },
     lux: {
       len1: parseInt(luxLen1.value||50), mlt1: parseFloat(luxMlt1.value||2),
       len2: parseInt(luxLen2.value||100), mlt2: parseFloat(luxMlt2.value||2),
       len3: parseInt(luxLen3.value||20), mlt3: parseFloat(luxMlt3.value||2)
     },
     island: {
-      trend: !!islandTrend.checked,
-      volume: !!islandVolume.checked,
-      r2: parseFloat(islandR2.value||0.5),
-      volMult: parseFloat(islandVol.value||5.0),
+      trend: !!islandTrend.checked, volume: !!islandVolume.checked,
+      r2: parseFloat(islandR2.value||0.5), volMult: parseFloat(islandVol.value||5.0),
       showR2: !!islandShowR2.checked
     },
-    // note: we DO NOT store timeframe per your choice
-    meta: { created: Date.now() }
+    meta:{ created: Date.now() }
   };
 }
 
-/* apply settings object to UI */
 function applySettingsToUI(settings){
   if(!settings) return;
   toggleReliable.checked = !!settings.toggles?.reliable;
@@ -636,28 +667,25 @@ function applySettingsToUI(settings){
   islandVol.value = settings.island?.volMult ?? islandVol.value;
   islandShowR2.checked = !!settings.island?.showR2;
 
-  // re-draw chart with new settings (but keep same timeframe)
-  if(ACTIVE_SYMBOL) {
+  // redraw chart with new settings
+  if(ACTIVE_SYMBOL){
     clearDrawings();
     loadChart(ACTIVE_SYMBOL);
   }
 }
 
-/* render presets UI */
 function renderPresetsUI(){
   const list = loadPresets();
   presetsListEl.innerHTML = '';
   list.forEach((p, idx)=>{
-    const li = document.createElement('li');
-    li.className='preset-item';
-    const left = document.createElement('div');
-    left.style.flex='1';
-    left.innerHTML = `<div style="font-weight:700">${p.name || 'Preset ' + (idx+1)}</div><div style="font-size:12px;color:var(--muted)">${new Date(p.meta?.created||Date.now()).toLocaleString()}</div>`;
+    const li = document.createElement('li'); li.className='preset-item';
+    const left = document.createElement('div'); left.style.flex='1';
+    left.innerHTML = '<div style="font-weight:700">' + (p.name || 'Preset ' + (idx+1)) + '</div><div style="font-size:12px;color:var(--muted)">' + new Date(p.meta?.created||Date.now()).toLocaleString() + '</div>';
     const right = document.createElement('div');
     const applyBtn = document.createElement('button'); applyBtn.textContent='Apply';
     const delBtn = document.createElement('button'); delBtn.textContent='Delete';
     const exportBtn = document.createElement('button'); exportBtn.textContent='JSON';
-    applyBtn.addEventListener('click', ()=> applyPreset(idx));
+    applyBtn.addEventListener('click', ()=> onPresetApplyClick(idx));
     delBtn.addEventListener('click', ()=> deletePreset(idx));
     exportBtn.addEventListener('click', ()=> exportPreset(idx));
     right.appendChild(exportBtn); right.appendChild(applyBtn); right.appendChild(delBtn);
@@ -666,72 +694,143 @@ function renderPresetsUI(){
   });
 }
 
-/* save preset button */
+/* Save preset */
 savePresetBtn.addEventListener('click', ()=>{
-  const name = (presetNameInput.value || '').trim();
-  if(!name){ alert('Give preset a name'); return; }
-  const current = currentSettings();
-  current.name = name;
-  const list = loadPresets();
-  list.unshift(current);
-  savePresets(list);
-  renderPresetsUI();
-  presetNameInput.value = '';
+  const name = (presetNameInput.value || '').trim(); if(!name){ alert('Give preset a name'); return; }
+  const p = currentSettingsObj(); p.name = name;
+  const list = loadPresets(); list.unshift(p); savePresets(list); renderPresetsUI(); presetNameInput.value='';
 });
 
-/* apply preset by index */
-function applyPreset(index){
-  const list = loadPresets();
-  if(!list[index]) return;
-  applySettingsToUI(list[index]);
-}
-
-/* delete */
-function deletePreset(index){
-  const list = loadPresets();
-  if(!list[index]) return;
-  if(!confirm('Delete preset "' + (list[index].name||'') + '"?')) return;
-  list.splice(index,1);
-  savePresets(list);
-  renderPresetsUI();
-}
-
-/* export preset as JSON (single) */
-function exportPreset(index){
-  const list = loadPresets();
-  const p = list[index];
-  if(!p) return;
-  const json = JSON.stringify(p, null, 2);
-  // show in prompt for easy copy
-  prompt('Preset JSON (copy & save):', json);
-}
-
-/* import via export button (allows pasting JSON) */
+/* delete & export */
+function deletePreset(index){ const list = loadPresets(); if(!list[index]) return; if(!confirm('Delete preset "' + (list[index].name||'') + '"?')) return; list.splice(index,1); savePresets(list); renderPresetsUI(); }
+function exportPreset(index){ const list = loadPresets(); const p = list[index]; if(!p) return; prompt('Preset JSON', JSON.stringify(p, null, 2)); }
 exportBtn.addEventListener('click', ()=>{
-  const curr = currentSettings();
-  const json = prompt('Paste preset JSON to import (or Cancel):');
-  if(!json) return;
-  try{
-    const obj = JSON.parse(json);
-    const list = loadPresets();
-    list.unshift(obj);
-    savePresets(list);
-    renderPresetsUI();
-    alert('Imported preset: ' + (obj.name||'unnamed'));
-  }catch(e){ alert('Invalid JSON'); }
+  const json = prompt('Paste preset JSON to import:'); if(!json) return;
+  try{ const obj = JSON.parse(json); const list = loadPresets(); list.unshift(obj); savePresets(list); renderPresetsUI(); alert('Imported'); }catch(e){ alert('Invalid JSON'); }
 });
 
-/* load presets at startup */
-renderPresetsUI();
+/* on preset Apply click -> Option 3 logic:
+   Show preview modal only if toggles (reliable/lux/island) change on/off compared to current UI.
+   If toggles identical (only parameter changes), apply immediately.
+*/
+function onPresetApplyClick(index){
+  const list = loadPresets(); const preset = list[index]; if(!preset) return;
+  const current = {
+    reliable: !!toggleReliable.checked,
+    lux: !!toggleLux.checked,
+    island: !!toggleIsland.checked
+  };
+  const presetToggles = preset.toggles || {};
+  const togglesDiffer = (current.reliable !== !!presetToggles.reliable) || (current.lux !== !!presetToggles.lux) || (current.island !== !!presetToggles.island);
 
-/* -----------------------------
-   toggles in topbar mirror main toggles (so both control same)
-   ----------------------------- */
-document.getElementById('ctrl-reliable').addEventListener('change', (e) => { toggleReliable.checked = e.target.checked; if(ACTIVE_SYMBOL) loadChart(ACTIVE_SYMBOL); });
-document.getElementById('ctrl-lux').addEventListener('change', (e) => { toggleLux.checked = e.target.checked; if(ACTIVE_SYMBOL) loadChart(ACTIVE_SYMBOL); });
-document.getElementById('ctrl-island').addEventListener('change', (e) => { toggleIsland.checked = e.target.checked; if(ACTIVE_SYMBOL) loadChart(ACTIVE_SYMBOL); });
+  if(togglesDiffer){
+    // show preview modal listing what will toggle
+    previewName.textContent = preset.name || 'Preset preview';
+    previewDiff.innerHTML = '';
+    function line(label, before, after){ const el = document.createElement('div'); el.style.marginBottom='6px'; el.innerHTML = '<b>' + label + '</b>: ' + (before ? '<span style="color:#8bd3ff">ON</span>' : '<span style="color:#666">OFF</span>') + ' ➜ ' + (after ? '<span style="color:#8bd3ff">ON</span>' : '<span style="color:#666">OFF</span>'); return el; }
+    previewDiff.appendChild(line('Reliable S/R', current.reliable, !!presetToggles.reliable));
+    previewDiff.appendChild(line('Lux S/R', current.lux, !!presetToggles.lux));
+    previewDiff.appendChild(line('Island Reversal', current.island, !!presetToggles.island));
 
-/* when any settings inputs change, re-draw */
+    // show important param changes summary
+    const paramList = document.createElement('div');
+    paramList.style.marginTop = '8px';
+    paramList.style.fontSize = '13px';
+    paramList.style.color = 'var(--muted)';
+    paramList.innerHTML = '<div style="font-weight:700;margin-bottom:6px">Parameter changes (summary)</div>';
+    paramList.innerHTML += '<div>Reliable - Pivot Left: '+preset.reliable.left+', Right: '+preset.reliable.right+'</div>';
+    paramList.innerHTML += '<div>Lux - len1/mlt1: '+preset.lux.len1+'/'+preset.lux.mlt1+', len2/mlt2: '+preset.lux.len2+'/'+preset.lux.mlt2+', len3/mlt3: '+preset.lux.len3+'/'+preset.lux.mlt3+'</div>';
+    paramList.innerHTML += '<div>Island - R²: '+preset.island.r2+', VolMult: '+preset.island.volMult+'</div>';
+    previewDiff.appendChild(paramList);
+
+    previewModal.style.display = 'flex';
+
+    // wire preview apply/cancel for this invocation
+    function onApply(){
+      previewApply.removeEventListener('click', onApply);
+      previewCancel.removeEventListener('click', onCancel);
+      previewModal.style.display = 'none';
+      applySettingsToUI(preset); // apply and re-draw
+    }
+    function onCancel(){
+      previewApply.removeEventListener('click', onApply);
+      previewCancel.removeEventListener('click', onCancel);
+      previewModal.style.display = 'none';
+    }
+    previewApply.addEventListener('click', onApply);
+    previewCancel.addEventListener('click', onCancel);
+  } else {
+    // toggles same -> apply immediately
+    applySettingsToUI(preset);
+  }
+}
+
+/* applySettingsToUI reused from previous implementation */
+function applySettingsToUI(settings){
+  if(!settings) return;
+  toggleReliable.checked = !!settings.toggles?.reliable;
+  toggleLux.checked = !!settings.toggles?.lux;
+  toggleIsland.checked = !!settings.toggles?.island;
+
+  pivotLeftInput.value = settings.reliable?.left ?? pivotLeftInput.value;
+  pivotRightInput.value = settings.reliable?.right ?? pivotRightInput.value;
+
+  luxLen1.value = settings.lux?.len1 ?? luxLen1.value;
+  luxMlt1.value = settings.lux?.mlt1 ?? luxMlt1.value;
+  luxLen2.value = settings.lux?.len2 ?? luxLen2.value;
+  luxMlt2.value = settings.lux?.mlt2 ?? luxMlt2.value;
+  luxLen3.value = settings.lux?.len3 ?? luxLen3.value;
+  luxMlt3.value = settings.lux?.mlt3 ?? luxMlt3.value;
+
+  islandTrend.checked = !!settings.island?.trend;
+  islandVolume.checked = !!settings.island?.volume;
+  islandR2.value = settings.island?.r2 ?? islandR2.value;
+  islandVol.value = settings.island?.volMult ?? islandVol.value;
+  islandShowR2.checked = !!settings.island?.showR2;
+
+  if(ACTIVE_SYMBOL){
+    clearDrawings();
+    loadChart(ACTIVE_SYMBOL);
+  }
+}
+
+/* initial render of presets list */
+function renderPresetsUI(){
+  const list = loadPresets();
+  presetsListEl.innerHTML = '';
+  list.forEach((p, idx)=>{
+    const li = document.createElement('li'); li.className='preset-item';
+    const left = document.createElement('div'); left.style.flex='1';
+    left.innerHTML = '<div style="font-weight:700">' + (p.name || 'Preset ' + (idx+1)) + '</div><div style="font-size:12px;color:var(--muted)">' + new Date(p.meta?.created||Date.now()).toLocaleString() + '</div>';
+    const right = document.createElement('div');
+    const applyBtn = document.createElement('button'); applyBtn.textContent='Apply';
+    const delBtn = document.createElement('button'); delBtn.textContent='Delete';
+    const exportBtn = document.createElement('button'); exportBtn.textContent='JSON';
+    applyBtn.addEventListener('click', ()=> onPresetApplyClick(idx));
+    delBtn.addEventListener('click', ()=> deletePreset(idx));
+    exportBtn.addEventListener('click', ()=> exportPreset(idx));
+    right.appendChild(exportBtn); right.appendChild(applyBtn); right.appendChild(delBtn);
+    li.appendChild(left); li.appendChild(right);
+    presetsListEl.appendChild(li);
+  });
+}
+
+/* save */
+savePresetBtn.addEventListener('click', ()=>{
+  const name = (presetNameInput.value || '').trim(); if(!name){ alert('Give preset a name'); return; }
+  const p = currentSettingsObj(); p.name = name;
+  const list = loadPresets(); list.unshift(p); savePresets(list); renderPresetsUI(); presetNameInput.value='';
+});
+function deletePreset(index){ const list = loadPresets(); if(!list[index]) return; if(!confirm('Delete preset "' + (list[index].name||'') + '"?')) return; list.splice(index,1); savePresets(list); renderPresetsUI(); }
+function exportPreset(index){ const list = loadPresets(); const p = list[index]; if(!p) return; prompt('Preset JSON', JSON.stringify(p, null, 2)); }
+exportBtn.addEventListener('click', ()=>{ const json = prompt('Paste preset JSON to import:'); if(!json) return; try{ const obj = JSON.parse(json); const list = loadPresets(); list.unshift(obj); savePresets(list); renderPresetsUI(); alert('Imported'); }catch(e){ alert('Invalid JSON'); } });
+
+/* wire topbar toggles to the sidebar ones to keep them in sync */
+document.getElementById('ctrl-reliable').addEventListener('change',(e)=>{ toggleReliable.checked = e.target.checked; if(ACTIVE_SYMBOL) loadChart(ACTIVE_SYMBOL); });
+document.getElementById('ctrl-lux').addEventListener('change',(e)=>{ toggleLux.checked = e.target.checked; if(ACTIVE_SYMBOL) loadChart(ACTIVE_SYMBOL); });
+document.getElementById('ctrl-island').addEventListener('change',(e)=>{ toggleIsland.checked = e.target.checked; if(ACTIVE_SYMBOL) loadChart(ACTIVE_SYMBOL); });
+
+/* when settings change apply immediately (only parameters) */
 [
   toggleReliable, pivotLeftInput, pivotRightInput,
   toggleLux, luxLen1, luxMlt1, luxLen2, luxMlt2, luxLen3, luxMlt3,
@@ -739,20 +838,17 @@ document.getElementById('ctrl-island').addEventListener('change', (e) => { toggl
 ].forEach(el => el.addEventListener('change', ()=> { if(ACTIVE_SYMBOL) { clearDrawings(); loadChart(ACTIVE_SYMBOL); } }));
 
 /* -----------------------------
-   init / load defaults
+   init
    ----------------------------- */
 function init(){
-  loadWatchlist();
-  renderWatchlist();
-  // set first symbol
-  if(WATCHLIST.length) loadChart(WATCHLIST[0].symbol);
-  // preload presets UI
+  loadWatchlist(); renderWatchlist();
   renderPresetsUI();
+  if(WATCHLIST.length) loadChart(WATCHLIST[0].symbol);
 }
 init();
 
 /* cleanup */
-window.addEventListener('beforeunload', ()=> { if(POLL_TIMER) clearInterval(POLL_TIMER); });
+window.addEventListener('beforeunload', ()=> { if(POLL_TIMER) clearInterval(POLL_TIMER); if(indicatorsWorker) indicatorsWorker.terminate(); });
 
 </script>
 </body>
