@@ -1,62 +1,290 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Facebook → CRM Permission Debug</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facebook Permissions Debugger</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    .card { border: 1px solid #ddd; padding: 15px; margin-top: 15px; }
-    button { padding: 10px 15px; cursor: pointer; }
-    pre { background: #f7f7f7; padding: 10px; overflow: auto; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #1877f2;
+      margin-top: 0;
+    }
+    .input-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #333;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #1877f2;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      background: #166fe5;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .output {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      border-left: 4px solid #1877f2;
+    }
+    .status {
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
+    .status.connected {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .status.not-connected {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .permissions-list {
+      margin-top: 15px;
+    }
+    .permission-item {
+      padding: 8px 12px;
+      margin: 5px 0;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .permission-granted {
+      background: #d4edda;
+      border-left: 3px solid #28a745;
+    }
+    .permission-declined {
+      background: #f8d7da;
+      border-left: 3px solid #dc3545;
+    }
+    .badge {
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge.granted {
+      background: #28a745;
+      color: white;
+    }
+    .badge.declined {
+      background: #dc3545;
+      color: white;
+    }
+    pre {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
+  <div class="container">
+    <h1>🔍 Facebook Permissions Debugger</h1>
+    
+    <div class="input-group">
+      <label for="appId">Facebook App ID:</label>
+      <input type="text" id="appId" placeholder="Enter your Facebook App ID">
+    </div>
 
-  <h2>Facebook → CRM Permission Debug</h2>
+    <div class="input-group">
+      <label for="scopes">Permissions to Request (comma-separated):</label>
+      <input type="text" id="scopes" value="business_management,pages_show_list,pages_read_engagement" placeholder="e.g., business_management,pages_show_list">
+    </div>
 
-  <div class="card">
-    <button onclick="fbLogin()">Login with Facebook</button>
+    <button onclick="initializeFB()">Initialize FB SDK</button>
+    <button onclick="fbLogin()" id="loginBtn" disabled>Login with Facebook</button>
+    <button onclick="checkPermissions()" id="checkBtn" disabled>Check Current Permissions</button>
+    <button onclick="clearOutput()">Clear Output</button>
+
+    <div id="output"></div>
   </div>
 
-  <div class="card">
-    <h3>Result</h3>
-    <pre id="result">Please log in to check permission status.</pre>
-  </div>
-
-  <!-- Facebook SDK -->
   <script>
-    window.fbAsyncInit = function () {
-      FB.init({
-        appId: '1252773156743952',   // 🔴 replace with correct App ID
-        cookie: true,
-        xfbml: false,
-        version: 'v19.0'
-      });
-    };
+    let fbInitialized = false;
 
-    (function (d, s, id) {
-      if (d.getElementById(id)) { return; }
-      var js = d.createElement(s); js.id = id;
-      js.src = "https://connect.facebook.net/en_US/sdk.js";
-      d.getElementsByTagName(s)[0].parentNode.insertBefore(js, s);
-    }(document, 'script', 'facebook-jssdk'));
+    function initializeFB() {
+      const appId = document.getElementById('appId').value.trim();
+      
+      if (!appId) {
+        showOutput('<div class="status not-connected">❌ Please enter your App ID first</div>');
+        return;
+      }
+
+      // Remove existing SDK if present
+      const existingScript = document.getElementById('facebook-jssdk');
+      if (existingScript) {
+        existingScript.remove();
+      }
+
+      // Load FB SDK
+      window.fbAsyncInit = function () {
+        FB.init({
+          appId: appId,
+          cookie: true,
+          xfbml: false,
+          version: 'v19.0'
+        });
+
+        fbInitialized = true;
+        document.getElementById('loginBtn').disabled = false;
+        document.getElementById('checkBtn').disabled = false;
+        showOutput('<div class="status connected">✅ Facebook SDK initialized successfully!</div>');
+      };
+
+      (function (d, s, id) {
+        var js = d.createElement(s);
+        js.id = id;
+        js.src = "https://connect.facebook.net/en_US/sdk.js";
+        d.body.appendChild(js);
+      }(document, 'script', 'facebook-jssdk'));
+    }
 
     function fbLogin() {
-      FB.login(function (response) {
-        document.getElementById('result').textContent =
-          JSON.stringify(response, null, 2);
+      if (!fbInitialized) {
+        showOutput('<div class="status not-connected">❌ Please initialize FB SDK first</div>');
+        return;
+      }
 
+      const scopes = document.getElementById('scopes').value.trim();
+
+      FB.login(function (response) {
+        displayLoginResponse(response);
+        
         if (response.status === 'connected') {
-          console.log('Login success');
-          console.log('Access Token:', response.authResponse.accessToken);
-        } else {
-          console.log('Login failed or cancelled');
+          // Automatically check permissions after successful login
+          setTimeout(checkPermissions, 500);
         }
       }, {
-        scope: 'public_profile,email'   // ✅ ONLY valid JS login scopes
+        scope: scopes,
+        auth_type: 'rerequest',
+        return_scopes: true
       });
     }
-  </script>
 
+    function checkPermissions() {
+      if (!fbInitialized) {
+        showOutput('<div class="status not-connected">❌ Please initialize FB SDK first</div>');
+        return;
+      }
+
+      FB.getLoginStatus(function(response) {
+        if (response.status !== 'connected') {
+          showOutput('<div class="status not-connected">❌ Not logged in. Please login first.</div>');
+          return;
+        }
+
+        FB.api('/me/permissions', function(permResponse) {
+          displayPermissions(permResponse);
+        });
+      });
+    }
+
+    function displayLoginResponse(response) {
+      let html = '<div class="output">';
+      html += '<h3>Login Response:</h3>';
+      
+      if (response.status === 'connected') {
+        html += '<div class="status connected">✅ Successfully Connected!</div>';
+        html += `<p><strong>User ID:</strong> ${response.authResponse.userID}</p>`;
+        html += `<p><strong>Access Token:</strong> ${response.authResponse.accessToken.substring(0, 50)}...</p>`;
+        html += `<p><strong>Token Expires:</strong> ${new Date(response.authResponse.data_access_expiration_time * 1000).toLocaleString()}</p>`;
+      } else {
+        html += '<div class="status not-connected">❌ Login Failed or Cancelled</div>';
+      }
+      
+      html += '<h4>Full Response:</h4>';
+      html += `<pre>${JSON.stringify(response, null, 2)}</pre>`;
+      html += '</div>';
+      
+      showOutput(html);
+    }
+
+    function displayPermissions(response) {
+      let html = '<div class="output">';
+      html += '<h3>Current Permissions:</h3>';
+      
+      if (response.data && response.data.length > 0) {
+        const granted = response.data.filter(p => p.status === 'granted');
+        const declined = response.data.filter(p => p.status === 'declined');
+        
+        html += `<p><strong>Total Granted:</strong> ${granted.length} | <strong>Declined:</strong> ${declined.length}</p>`;
+        
+        html += '<div class="permissions-list">';
+        
+        response.data.forEach(permission => {
+          const isGranted = permission.status === 'granted';
+          html += `<div class="permission-item ${isGranted ? 'permission-granted' : 'permission-declined'}">`;
+          html += `<span>${permission.permission}</span>`;
+          html += `<span class="badge ${isGranted ? 'granted' : 'declined'}">${permission.status.toUpperCase()}</span>`;
+          html += '</div>';
+        });
+        
+        html += '</div>';
+        
+        html += '<h4>Raw Permissions Data:</h4>';
+        html += `<pre>${JSON.stringify(response, null, 2)}</pre>`;
+      } else {
+        html += '<div class="status not-connected">❌ No permissions data available</div>';
+      }
+      
+      html += '</div>';
+      showOutput(html);
+    }
+
+    function showOutput(html) {
+      document.getElementById('output').innerHTML = html;
+    }
+
+    function clearOutput() {
+      document.getElementById('output').innerHTML = '';
+    }
+  </script>
 </body>
 </html>
